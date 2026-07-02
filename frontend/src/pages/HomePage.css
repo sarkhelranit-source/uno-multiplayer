@@ -1,0 +1,121 @@
+.home-page {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Floating cards behind hero */
+.floating-cards {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.floating-card {
+  position: absolute;
+  opacity: 0.15;
+  filter: blur(1px);
+}
+
+/* Hero center */
+.hero-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+  text-align: center;
+}
+
+.hero-logo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.logo-text {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 6rem;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  display: flex;
+  gap: 4px;
+}
+
+.logo-u { color: var(--uno-red); text-shadow: 0 4px 20px var(--uno-red-glow); }
+.logo-n { color: var(--uno-yellow); text-shadow: 0 4px 20px var(--uno-yellow-glow); }
+.logo-o { color: var(--uno-green); text-shadow: 0 4px 20px var(--uno-green-glow); }
+
+.logo-subtitle {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 1.15rem;
+  letter-spacing: 0.5em;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+}
+
+.hero-tagline {
+  font-size: 1.15rem;
+  color: var(--text-secondary);
+  max-width: 400px;
+  line-height: 1.5;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+/* Bottom color strip */
+.home-bottom-strip {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  display: flex;
+  z-index: 10;
+}
+
+.strip-color {
+  flex: 1;
+  transition: height var(--transition-normal);
+}
+
+.strip-color.red { background: var(--uno-red); }
+.strip-color.blue { background: var(--uno-blue); }
+.strip-color.green { background: var(--uno-green); }
+.strip-color.yellow { background: var(--uno-yellow); }
+
+.home-bottom-strip:hover .strip-color {
+  height: 6px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .logo-text {
+    font-size: 4rem;
+  }
+
+  .hero-tagline {
+    font-size: 1rem;
+    max-width: 300px;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+    width: 100%;
+    max-width: 300px;
+  }
+
+  .hero-actions .btn {
+    width: 100%;
+  }
+}

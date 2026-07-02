@@ -1,0 +1,17 @@
+.player-hand-wrapper {
+  display: flex;
+  justify-content: center;
+  padding: 16px 24px 24px;
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  position: relative;
+}
+
+.player-hand {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  min-height: calc(var(--card-height) + 20px);
+  padding-top: 20px;
+}

@@ -1,0 +1,56 @@
+.color-picker-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(6px);
+}
+
+.color-picker-modal {
+  padding: 32px;
+  border-radius: var(--radius-xl);
+  text-align: center;
+  min-width: 300px;
+}
+
+.color-picker-title {
+  margin-bottom: 24px;
+  font-size: 1.3rem;
+  color: var(--text-primary);
+}
+
+.color-picker-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.color-picker-btn {
+  width: 100%;
+  height: 70px;
+  border-radius: var(--radius-lg);
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    border-color var(--transition-normal),
+    box-shadow var(--transition-normal);
+}
+
+.color-picker-btn:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.3);
+}
+
+.color-picker-label {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: white;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  font-size: 1.1rem;
+}

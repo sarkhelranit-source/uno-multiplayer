@@ -1,0 +1,9 @@
+implementation_plan*
+dist/
+backend/dist/
+frontend/node_modules/
+frontend/dist/
+backend/node_modules/
+.env*
+*.log
+*.txt
