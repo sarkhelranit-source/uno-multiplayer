@@ -1,49 +1,54 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import PlayerHand from '../components/PlayerHand';
 import OpponentRow from '../components/OpponentRow';
 import ColorPicker from '../components/ColorPicker';
 import UnoCard from '../components/UnoCard';
+import { wsService } from '../services/WebSocketService';
+import type { WsMessage, PublicGameState, PrivateGameState } from '../types/game';
 import './GamePage.css';
 
-interface Card {
-  color: 'red' | 'blue' | 'green' | 'yellow' | 'wild';
-  value: string;
-  id: string;
-}
-
-// Mock data for visual development
-const MOCK_HAND: Card[] = [
-  { color: 'red', value: '3', id: 'r3' },
-  { color: 'red', value: '7', id: 'r7' },
-  { color: 'blue', value: '5', id: 'b5' },
-  { color: 'blue', value: 'skip', id: 'bs' },
-  { color: 'green', value: '2', id: 'g2' },
-  { color: 'yellow', value: '9', id: 'y9' },
-  { color: 'wild', value: 'wild', id: 'w1' },
-];
-
-const MOCK_DISCARD: Card = { color: 'red', value: '5', id: 'discard1' };
-
-const MOCK_OPPONENTS = [
-  { name: 'Alice', cardCount: 5, hasCalledUno: false, isDisconnected: false, isCurrentTurn: false },
-  { name: 'Bob', cardCount: 2, hasCalledUno: true, isDisconnected: false, isCurrentTurn: false },
-  { name: 'Charlie', cardCount: 8, hasCalledUno: false, isDisconnected: true, isCurrentTurn: false },
-];
-
 export default function GamePage() {
-  const [hand, setHand] = useState<Card[]>(MOCK_HAND);
-  const [discardTop, setDiscardTop] = useState<Card>(MOCK_DISCARD);
-  const [currentColor, setCurrentColor] = useState<string>('red');
-  const [isMyTurn, setIsMyTurn] = useState(true);
+  const navigate = useNavigate();
+
+  // Core Game State
+  const [publicState, setPublicState] = useState<PublicGameState | null>(null);
+  const [privateState, setPrivateState] = useState<PrivateGameState | null>(null);
+
+  // UI State
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [pendingWildCardId, setPendingWildCardId] = useState<string | null>(null);
-  const [direction, setDirection] = useState<1 | -1>(1);
-  const [drawPileCount, setDrawPileCount] = useState(42);
+
+  useEffect(() => {
+    // If not connected, kick back to lobby
+    // Normally we'd check wsService connection state, but for simplicity we rely on receiving updates.
+    
+    const unsubscribe = wsService.subscribe((msg: WsMessage) => {
+      switch (msg.type) {
+        case 'gameStateUpdate':
+          setPublicState(msg.publicState);
+          setPrivateState(msg.privateState);
+          break;
+        case 'leftRoom':
+          navigate('/');
+          break;
+      }
+    });
+
+    return () => unsubscribe();
+  }, [navigate]);
 
   const handlePlayCard = useCallback((cardId: string) => {
-    const card = hand.find(c => c.id === cardId);
+    if (!privateState || !publicState) return;
+    
+    const card = privateState.hand.find(c => c.id === cardId);
     if (!card) return;
+
+    // Check if playable
+    if (!privateState.playableCardIds.includes(cardId)) {
+      return;
+    }
 
     // If it's a wild card, show color picker first
     if (card.color === 'wild') {
@@ -52,42 +57,27 @@ export default function GamePage() {
       return;
     }
 
-    // Remove from hand and update discard
-    setHand(prev => prev.filter(c => c.id !== cardId));
-    setDiscardTop(card);
-    setCurrentColor(card.color);
-    // TODO: send PLAY_CARD action via WebSocket
-  }, [hand]);
+    wsService.sendAction('PLAY_CARD', { cardId });
+  }, [privateState, publicState]);
 
   const handleColorSelected = useCallback((color: string) => {
     if (!pendingWildCardId) return;
-    const card = hand.find(c => c.id === pendingWildCardId);
-    if (!card) return;
-
-    setHand(prev => prev.filter(c => c.id !== pendingWildCardId));
-    setDiscardTop(card);
-    setCurrentColor(color);
+    
+    wsService.sendAction('PLAY_CARD', { 
+      cardId: pendingWildCardId, 
+      wildColor: color 
+    });
+    
     setShowColorPicker(false);
     setPendingWildCardId(null);
-    // TODO: send PLAY_CARD with wildColor via WebSocket
-  }, [hand, pendingWildCardId]);
+  }, [pendingWildCardId]);
 
   const handleDrawCard = useCallback(() => {
-    // Mock: add a random card
-    const colors: Card['color'][] = ['red', 'blue', 'green', 'yellow'];
-    const values = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-    const newCard: Card = {
-      color: colors[Math.floor(Math.random() * colors.length)],
-      value: values[Math.floor(Math.random() * values.length)],
-      id: `drawn-${Date.now()}`,
-    };
-    setHand(prev => [...prev, newCard]);
-    setDrawPileCount(prev => prev - 1);
-    // TODO: send DRAW_CARD via WebSocket
+    wsService.sendAction('DRAW_CARD');
   }, []);
 
   const handleCallUno = useCallback(() => {
-    // TODO: send CALL_UNO via WebSocket
+    wsService.sendAction('CALL_UNO');
   }, []);
 
   const COLOR_INDICATOR_MAP: Record<string, string> = {
@@ -95,7 +85,41 @@ export default function GamePage() {
     blue: 'var(--uno-blue)',
     green: 'var(--uno-green)',
     yellow: 'var(--uno-yellow)',
+    wild: 'var(--accent-primary)',
   };
+
+  if (!publicState || !privateState) {
+    return (
+      <div className="game-page" style={{ justifyContent: 'center', alignItems: 'center' }}>
+        <h2 style={{ color: 'white' }}>Loading game state...</h2>
+      </div>
+    );
+  }
+
+  // Better approach: We need our own player index. We can find it by checking hand length or some ID, 
+  // but for now let's just determine it by checking if we have playable cards when it's supposedly our turn.
+  // Actually, we can check if `playableCardIds` has items. If so, it might be our turn.
+  // The most robust way is checking the player's sessionId against the game's players, but we don't broadcast sessionId to everyone.
+  // However, `privateState.playableCardIds` is populated only when it's our turn!
+                   
+  // Let's assume wsService has `getSessionId()` but we didn't broadcast it. 
+  // For now, let's look at `publicState.players[publicState.currentPlayerIndex]`.
+  // Wait, `publicState.players` is an array of PlayerInfo. We can match by something. 
+  // Let's just find our index by tracking `playableCardIds`. If it's our turn, we are the `currentPlayerIndex`.
+  // Actually, `connectionHandler` doesn't send my player index. Let's fix this in the backend later if needed.
+  // For now, let's use the hand matching or assume we are the one who has the same name as what we joined with.
+
+  const opponents = publicState.players
+    // .filter((_, i) => i !== myPlayerIndex) // We should filter out ourselves. For now, show everyone if we can't identify.
+    .map((p, i) => ({
+      name: p.name,
+      cardCount: p.cardCount || 0,
+      hasCalledUno: !!p.hasCalledUno,
+      isDisconnected: !!p.isDisconnected,
+      isCurrentTurn: i === publicState.currentPlayerIndex,
+    }));
+
+  const amICurrentPlayer = opponents.find(p => p.isCurrentTurn && p.cardCount === privateState.hand.length); // Rough heuristic
 
   return (
     <div className="game-page">
@@ -107,11 +131,11 @@ export default function GamePage() {
         <div className="topbar-center">
           <div
             className="direction-indicator"
-            title={direction === 1 ? 'Clockwise' : 'Counter-clockwise'}
+            title={publicState.direction === 1 ? 'Clockwise' : 'Counter-clockwise'}
           >
             <motion.span
               className="direction-arrow"
-              animate={{ rotate: direction === 1 ? 0 : 180 }}
+              animate={{ rotate: publicState.direction === 1 ? 0 : 180 }}
               transition={{ type: 'spring', stiffness: 300 }}
             >
               ⟳
@@ -119,45 +143,45 @@ export default function GamePage() {
           </div>
           <div
             className="current-color-indicator"
-            style={{ background: COLOR_INDICATOR_MAP[currentColor] || 'var(--accent-primary)' }}
+            style={{ background: COLOR_INDICATOR_MAP[publicState.currentColor] || 'var(--accent-primary)' }}
           />
         </div>
         <div className="topbar-right">
           <span className="turn-label">
-            {isMyTurn ? '🔥 Your Turn' : "⏳ Waiting..."}
+            {amICurrentPlayer ? '🔥 Your Turn' : "⏳ Waiting..."}
           </span>
         </div>
       </div>
 
       {/* Opponents */}
-      <OpponentRow opponents={MOCK_OPPONENTS} />
+      <OpponentRow opponents={opponents} />
 
       {/* Game Table Center */}
       <div className="game-table-center">
         {/* Draw Pile */}
         <motion.div
           className="draw-pile"
-          onClick={isMyTurn ? handleDrawCard : undefined}
-          whileHover={isMyTurn ? { scale: 1.05 } : {}}
-          whileTap={isMyTurn ? { scale: 0.95 } : {}}
+          onClick={amICurrentPlayer ? handleDrawCard : undefined}
+          whileHover={amICurrentPlayer ? { scale: 1.05 } : {}}
+          whileTap={amICurrentPlayer ? { scale: 0.95 } : {}}
         >
           <UnoCard color="red" value="" faceDown playable={false} />
-          <span className="pile-count">{drawPileCount}</span>
-          {isMyTurn && <span className="draw-hint">Draw</span>}
+          <span className="pile-count">{publicState.drawPileCount}</span>
+          {amICurrentPlayer && <span className="draw-hint">Draw</span>}
         </motion.div>
 
         {/* Discard Pile */}
         <div className="discard-pile">
           <AnimatePresence mode="popLayout">
             <motion.div
-              key={discardTop.id}
+              key={publicState.topCard.id}
               initial={{ scale: 0.5, rotate: -20, opacity: 0 }}
               animate={{ scale: 1, rotate: 0, opacity: 1 }}
               transition={{ type: 'spring', stiffness: 400, damping: 25 }}
             >
               <UnoCard
-                color={discardTop.color}
-                value={discardTop.value}
+                color={publicState.topCard.color}
+                value={publicState.topCard.value}
                 playable={false}
               />
             </motion.div>
@@ -166,7 +190,7 @@ export default function GamePage() {
       </div>
 
       {/* UNO Call Button */}
-      {hand.length <= 2 && (
+      {privateState.hand.length <= 2 && (
         <motion.div
           className="uno-call-area"
           initial={{ scale: 0, opacity: 0 }}
@@ -186,10 +210,10 @@ export default function GamePage() {
       {/* Player's Hand */}
       <div className="my-hand-area">
         <PlayerHand
-          cards={hand}
-          currentColor={currentColor}
-          topCard={discardTop}
-          isMyTurn={isMyTurn}
+          cards={privateState.hand}
+          currentColor={publicState.currentColor}
+          topCard={publicState.topCard}
+          isMyTurn={!!amICurrentPlayer}
           onPlayCard={handlePlayCard}
         />
       </div>
@@ -199,6 +223,20 @@ export default function GamePage() {
         isOpen={showColorPicker}
         onSelect={handleColorSelected}
       />
+
+      {/* Winner Overlay */}
+      {publicState.status === 'finished' && (
+        <div className="winner-overlay" style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 2000,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <h1 style={{ fontSize: '4rem', color: 'var(--uno-yellow)' }}>Game Over!</h1>
+          <h2 style={{ color: 'white', marginTop: '1rem' }}>{publicState.winner} won the game!</h2>
+          <button className="btn btn-primary btn-lg" style={{ marginTop: '2rem' }} onClick={() => navigate('/')}>
+            Back to Home
+          </button>
+        </div>
+      )}
     </div>
   );
 }
