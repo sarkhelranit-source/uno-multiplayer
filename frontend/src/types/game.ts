@@ -13,6 +13,7 @@ export interface PlayerInfo {
   isDisconnected: boolean;
   cardCount?: number;
   hasCalledUno?: boolean;
+  sessionId?: string;
 }
 
 export interface PublicGameState {
@@ -32,6 +33,7 @@ export interface PublicGameState {
 export interface PrivateGameState {
   hand: Card[];
   playableCardIds: string[];
+  hasDrawn?: boolean;
 }
 
 // WebSocket incoming messages

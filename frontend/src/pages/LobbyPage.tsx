@@ -40,8 +40,14 @@ export default function LobbyPage() {
           setIsConnecting(false);
           break;
         case 'gameStateUpdate':
-          // Game started, navigate to game page
-          navigate('/game', { replace: true });
+          // Game started, navigate to game page and pass the initial state
+          navigate('/game', { 
+            replace: true,
+            state: { 
+              publicState: msg.publicState, 
+              privateState: msg.privateState 
+            }
+          });
           break;
         case 'leftRoom':
           setJoined(false);

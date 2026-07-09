@@ -155,6 +155,7 @@ export function initializeGame(
     players,
     settings: defaultSettings(),
     turnStartedAt: Date.now(),
+    hasDrawnThisTurn: false,
   };
 
   // Apply the first card's effect (skip, reverse, draw2 can be first cards)
@@ -273,6 +274,9 @@ function advanceTurn(game: UnoGame): void {
   // Reset UNO call for the new current player
   const currentPlayer = game.players[game.currentPlayerIndex];
   currentPlayer.hasCalledUno = false;
+  
+  // Reset draw flag
+  game.hasDrawnThisTurn = false;
 }
 
 /**
@@ -533,6 +537,10 @@ export function drawCard(
     return { success: false, error: 'Not your turn.' };
   }
 
+  if (game.hasDrawnThisTurn) {
+    return { success: false, error: 'You have already drawn a card this turn. Play it or pass.' };
+  }
+
   const player = game.players[playerIndex];
 
   // If there's a pending draw penalty, the player draws that many cards
@@ -572,6 +580,7 @@ export function drawCard(
     game.lastAction = `${player.name} drew a card and passed`;
   } else {
     // Player can choose to play it — turn does NOT advance yet
+    game.hasDrawnThisTurn = true;
     game.lastAction = `${player.name} drew a card`;
   }
 
@@ -713,6 +722,8 @@ export function getPublicGameState(game: UnoGame) {
     winner: game.winner,
     lastAction: game.lastAction,
     turnStartedAt: game.turnStartedAt,
+    hasDrawnThisTurn: game.hasDrawnThisTurn,
+    settings: game.settings,
     players: game.players.map(p => ({
       name: p.name,
       cardCount: p.hand.length,
@@ -735,5 +746,6 @@ export function getPrivatePlayerState(game: UnoGame, connectionId: string) {
     playableCardIds: game.status === 'playing' && game.players[game.currentPlayerIndex].connectionId === connectionId
       ? player.hand.filter(c => isCardPlayable(c, game)).map(c => c.id)
       : [],
+    hasDrawn: game.hasDrawnThisTurn,
   };
 }

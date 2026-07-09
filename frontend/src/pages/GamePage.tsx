@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import PlayerHand from '../components/PlayerHand';
 import OpponentRow from '../components/OpponentRow';
 import ColorPicker from '../components/ColorPicker';
@@ -11,10 +11,11 @@ import './GamePage.css';
 
 export default function GamePage() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Core Game State
-  const [publicState, setPublicState] = useState<PublicGameState | null>(null);
-  const [privateState, setPrivateState] = useState<PrivateGameState | null>(null);
+  const [publicState, setPublicState] = useState<PublicGameState | null>(location.state?.publicState || null);
+  const [privateState, setPrivateState] = useState<PrivateGameState | null>(location.state?.privateState || null);
 
   // UI State
   const [showColorPicker, setShowColorPicker] = useState(false);
@@ -109,17 +110,26 @@ export default function GamePage() {
   // Actually, `connectionHandler` doesn't send my player index. Let's fix this in the backend later if needed.
   // For now, let's use the hand matching or assume we are the one who has the same name as what we joined with.
 
+  const mySessionId = wsService.getSessionId();
+  
+  // Only show OTHER players in the top row
   const opponents = publicState.players
-    // .filter((_, i) => i !== myPlayerIndex) // We should filter out ourselves. For now, show everyone if we can't identify.
-    .map((p, i) => ({
-      name: p.name,
-      cardCount: p.cardCount || 0,
-      hasCalledUno: !!p.hasCalledUno,
-      isDisconnected: !!p.isDisconnected,
-      isCurrentTurn: i === publicState.currentPlayerIndex,
-    }));
+    .filter(p => p.sessionId !== mySessionId)
+    .map((p) => {
+      // Find their actual index in the game to check if it's their turn
+      const actualIndex = publicState.players.findIndex(orig => orig.sessionId === p.sessionId);
+      return {
+        name: p.name,
+        cardCount: p.cardCount || 0,
+        hasCalledUno: !!p.hasCalledUno,
+        isDisconnected: !!p.isDisconnected,
+        isCurrentTurn: actualIndex === publicState.currentPlayerIndex,
+      };
+    });
 
-  const amICurrentPlayer = opponents.find(p => p.isCurrentTurn && p.cardCount === privateState.hand.length); // Rough heuristic
+  // Check if it's OUR turn
+  const myPlayerIndex = publicState.players.findIndex(p => p.sessionId === mySessionId);
+  const amICurrentPlayer = myPlayerIndex !== -1 && myPlayerIndex === publicState.currentPlayerIndex;
 
   return (
     <div className="game-page">
@@ -161,14 +171,25 @@ export default function GamePage() {
         {/* Draw Pile */}
         <motion.div
           className="draw-pile"
-          onClick={amICurrentPlayer ? handleDrawCard : undefined}
-          whileHover={amICurrentPlayer ? { scale: 1.05 } : {}}
-          whileTap={amICurrentPlayer ? { scale: 0.95 } : {}}
+          onClick={amICurrentPlayer && !privateState.hasDrawn ? handleDrawCard : undefined}
+          whileHover={amICurrentPlayer && !privateState.hasDrawn ? { scale: 1.05 } : {}}
+          whileTap={amICurrentPlayer && !privateState.hasDrawn ? { scale: 0.95 } : {}}
+          style={{ opacity: privateState.hasDrawn ? 0.5 : 1 }}
         >
           <UnoCard color="red" value="" faceDown playable={false} />
           <span className="pile-count">{publicState.drawPileCount}</span>
-          {amICurrentPlayer && <span className="draw-hint">Draw</span>}
+          {amICurrentPlayer && !privateState.hasDrawn && <span className="draw-hint">Draw</span>}
         </motion.div>
+
+        {amICurrentPlayer && privateState.hasDrawn && (
+          <button 
+            className="btn btn-secondary" 
+            style={{ position: 'absolute', bottom: '-60px' }} 
+            onClick={() => wsService.sendAction('PASS_AFTER_DRAW')}
+          >
+            Pass Turn
+          </button>
+        )}
 
         {/* Discard Pile */}
         <div className="discard-pile">

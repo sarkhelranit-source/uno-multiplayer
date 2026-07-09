@@ -16,11 +16,11 @@ class WebSocketService {
       console.error('VITE_WEBSOCKET_URL is not defined in .env');
     }
 
-    // Persist sessionId across reloads
-    let sid = localStorage.getItem('uno_session_id');
+    // Persist sessionId across reloads but keep it unique per tab for local testing
+    let sid = sessionStorage.getItem('uno_session_id');
     if (!sid) {
       sid = `session_${Math.random().toString(36).substring(2, 15)}`;
-      localStorage.setItem('uno_session_id', sid);
+      sessionStorage.setItem('uno_session_id', sid);
     }
     this.sessionId = sid;
   }
