@@ -167,6 +167,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           game, connectionId,
           payload.cardId as string,
           payload.wildColor as string | undefined,
+          payload.unoCalled as boolean | undefined,
         );
         break;
 
@@ -179,6 +180,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           game, connectionId,
           payload.cardId as string,
           payload.wildColor as string | undefined,
+          payload.unoCalled as boolean | undefined,
         );
         break;
 
@@ -269,9 +271,10 @@ async function handleCreateRoom(
     direction: 1,
     currentColor: 'red' as CardColor,
     pendingDrawCount: 0,
+    hasDrawnThisTurn: false,
     players: [hostPlayer],
     settings: {
-      stackDrawCards: false,
+      stackDrawCards: true,
       forcePlay: false,
       jumpIn: false,
       drawUntilMatch: false,
@@ -434,6 +437,11 @@ async function handleLeaveRoom(
     ExpressionAttributeValues: { ':roomId': 'LOBBY' },
   }));
 
+  // Notify the leaving player IMMEDIATELY
+  await sendToConnection(apigwManagementApi, connectionId, {
+    type: 'leftRoom',
+  });
+
   // If room is now empty, delete the game
   if (game.players.length === 0) {
     await docClient.send(new DeleteCommand({
@@ -450,23 +458,25 @@ async function handleLeaveRoom(
 
   // If game is in progress and a player left, handle it
   if (game.status === 'playing') {
-    // If it was the leaving player's turn, advance
-    if (game.currentPlayerIndex >= game.players.length) {
-      game.currentPlayerIndex = 0;
-    }
-    // Put leaving player's cards back into draw pile
-    if (leavingPlayer.hand.length > 0) {
-      game.drawPile.push(...leavingPlayer.hand);
+    if (game.players.length < MIN_PLAYERS) {
+      // The remaining player wins by default!
+      game.status = 'finished';
+      game.winner = game.players[0].name;
+      game.lastAction = 'Opponent left the game.';
+    } else {
+      // If it was the leaving player's turn, advance
+      if (game.currentPlayerIndex >= game.players.length) {
+        game.currentPlayerIndex = 0;
+      }
+      // Put leaving player's cards back into draw pile
+      if (leavingPlayer.hand.length > 0) {
+        game.drawPile.push(...leavingPlayer.hand);
+      }
     }
   }
 
   // Save updated game
   await saveGame(game);
-
-  // Notify the leaving player
-  await sendToConnection(apigwManagementApi, connectionId, {
-    type: 'leftRoom',
-  });
 
   // Broadcast updated state to remaining players
   if (game.status === 'playing') {

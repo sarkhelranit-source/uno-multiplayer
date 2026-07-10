@@ -10,25 +10,15 @@ interface Card {
 
 interface PlayerHandProps {
   cards: Card[];
-  currentColor: string;
-  topCard: Card | null;
   isMyTurn: boolean;
+  playableCardIds: string[];
   onPlayCard: (cardId: string) => void;
-}
-
-function isPlayable(card: Card, topCard: Card | null, currentColor: string): boolean {
-  if (!topCard) return true;
-  if (card.color === 'wild') return true;
-  if (card.color === currentColor) return true;
-  if (card.value === topCard.value) return true;
-  return false;
 }
 
 export default function PlayerHand({
   cards,
-  currentColor,
-  topCard,
   isMyTurn,
+  playableCardIds,
   onPlayCard,
 }: PlayerHandProps) {
   const totalCards = cards.length;
@@ -43,7 +33,8 @@ export default function PlayerHand({
               ? -maxFanAngle / 2 + (index / (totalCards - 1)) * maxFanAngle
               : 0;
             const yOffset = Math.abs(angle) * 0.4;
-            const playable = isMyTurn && isPlayable(card, topCard, currentColor);
+            // A card is only playable if it's your turn AND the backend says it's playable
+            const playable = isMyTurn && playableCardIds.includes(card.id);
 
             return (
               <UnoCard

@@ -25,6 +25,8 @@ class WebSocketService {
     this.sessionId = sid;
   }
 
+  private pingInterval: ReturnType<typeof setInterval> | null = null;
+
   public connect(roomId?: string): Promise<void> {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       return Promise.resolve();
@@ -53,6 +55,13 @@ class WebSocketService {
       this.ws.onopen = () => {
         console.log('WebSocket connected');
         this.isConnecting = false;
+        
+        // AWS API Gateway disconnects idle websockets after 10 minutes.
+        // Send a ping every 5 minutes to keep it alive.
+        this.pingInterval = setInterval(() => {
+          this.sendAction('PING');
+        }, 5 * 60 * 1000);
+        
         resolve();
       };
 
@@ -69,6 +78,10 @@ class WebSocketService {
         console.log('WebSocket disconnected');
         this.ws = null;
         this.isConnecting = false;
+        if (this.pingInterval) {
+          clearInterval(this.pingInterval);
+          this.pingInterval = null;
+        }
       };
 
       this.ws.onerror = (err) => {
@@ -99,6 +112,10 @@ class WebSocketService {
     if (this.ws) {
       this.ws.close();
       this.ws = null;
+    }
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval);
+      this.pingInterval = null;
     }
   }
 

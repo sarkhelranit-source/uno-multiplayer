@@ -219,8 +219,15 @@ function defaultSettings(): GameSettings {
  * MUST draw first (no stacking in official rules).
  */
 export function isCardPlayable(card: Card, game: UnoGame): boolean {
-  // If there's a pending draw, the player cannot play — they must draw first
+  // If there's a pending draw, they must draw UNLESS stacking is enabled and they play a valid stacking card
   if (game.pendingDrawCount > 0) {
+    if (!game.settings.stackDrawCards) {
+      return false;
+    }
+    // If stacking is enabled, they can only play another draw card of the same type
+    const topCard = game.discardPile[game.discardPile.length - 1];
+    if (topCard.value === 'draw2' && card.value === 'draw2') return true;
+    if (topCard.value === 'wild4' && card.value === 'wild4') return true;
     return false;
   }
 
@@ -360,6 +367,7 @@ export function playCard(
   connectionId: string,
   cardId: string,
   wildColor?: string,
+  unoCalled?: boolean,
 ): ActionResult {
   // Verify it's this player's turn
   const playerIndex = game.players.findIndex(p => p.connectionId === connectionId);
@@ -371,6 +379,10 @@ export function playCard(
   }
 
   const player = game.players[playerIndex];
+
+  if (unoCalled === true) {
+    player.hasCalledUno = true;
+  }
 
   // Find the card in hand
   const cardIndex = player.hand.findIndex(c => c.id === cardId);
@@ -471,32 +483,16 @@ function applyCardEffect(game: UnoGame, card: Card): GameEvent[] {
     }
 
     case 'draw2': {
-      // Next player draws 2 and loses their turn
-      advanceTurn(game); // move to the penalized player
-      const penalizedPlayer = game.players[game.currentPlayerIndex];
-
-      for (let i = 0; i < 2; i++) {
-        const drawnCard = drawOneCard(game);
-        if (drawnCard) penalizedPlayer.hand.push(drawnCard);
-      }
-
-      events.push({ type: 'drawPenalty', playerName: penalizedPlayer.name, count: 2 });
-      advanceTurn(game); // skip past them
+      game.pendingDrawCount += 2;
+      events.push({ type: 'drawPenaltyPending', count: game.pendingDrawCount } as any);
+      // Turn will be advanced normally by playCard, passing to the penalized player
       break;
     }
 
     case 'wild4': {
-      // Next player draws 4 and loses their turn
-      advanceTurn(game); // move to the penalized player
-      const penalizedPlayer = game.players[game.currentPlayerIndex];
-
-      for (let i = 0; i < 4; i++) {
-        const drawnCard = drawOneCard(game);
-        if (drawnCard) penalizedPlayer.hand.push(drawnCard);
-      }
-
-      events.push({ type: 'drawPenalty', playerName: penalizedPlayer.name, count: 4 });
-      advanceTurn(game); // skip past them
+      game.pendingDrawCount += 4;
+      events.push({ type: 'drawPenaltyPending', count: game.pendingDrawCount } as any);
+      // Turn will be advanced normally by playCard, passing to the penalized player
       break;
     }
 
@@ -601,10 +597,11 @@ export function playDrawnCard(
   connectionId: string,
   cardId: string,
   wildColor?: string,
+  unoCalled?: boolean,
 ): ActionResult {
-  // This is essentially the same as playCard, but we verify
-  // the card was just drawn (it should be the last card in hand)
-  return playCard(game, connectionId, cardId, wildColor);
+  // Same logic as playCard, but we might want to restrict it to only the drawn card.
+  // For simplicity, we just defer to playCard.
+  return playCard(game, connectionId, cardId, wildColor, unoCalled);
 }
 
 /**

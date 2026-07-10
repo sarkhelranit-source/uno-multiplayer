@@ -20,6 +20,7 @@ export default function GamePage() {
   // UI State
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [pendingWildCardId, setPendingWildCardId] = useState<string | null>(null);
+  const [localUnoCalled, setLocalUnoCalled] = useState(false);
 
   useEffect(() => {
     // If not connected, kick back to lobby
@@ -58,26 +59,30 @@ export default function GamePage() {
       return;
     }
 
-    wsService.sendAction('PLAY_CARD', { cardId });
-  }, [privateState, publicState]);
+    wsService.sendAction('PLAY_CARD', { cardId, unoCalled: localUnoCalled });
+    if (localUnoCalled) setLocalUnoCalled(false);
+  }, [privateState, publicState, localUnoCalled]);
 
   const handleColorSelected = useCallback((color: string) => {
     if (!pendingWildCardId) return;
     
     wsService.sendAction('PLAY_CARD', { 
       cardId: pendingWildCardId, 
-      wildColor: color 
+      wildColor: color,
+      unoCalled: localUnoCalled
     });
     
     setShowColorPicker(false);
     setPendingWildCardId(null);
-  }, [pendingWildCardId]);
+    if (localUnoCalled) setLocalUnoCalled(false);
+  }, [pendingWildCardId, localUnoCalled]);
 
   const handleDrawCard = useCallback(() => {
     wsService.sendAction('DRAW_CARD');
   }, []);
 
   const handleCallUno = useCallback(() => {
+    setLocalUnoCalled(true);
     wsService.sendAction('CALL_UNO');
   }, []);
 
@@ -135,7 +140,17 @@ export default function GamePage() {
     <div className="game-page">
       {/* Top bar */}
       <div className="game-topbar glass">
-        <div className="topbar-left">
+        <div className="topbar-left" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <button 
+            className="btn btn-secondary btn-sm" 
+            onClick={() => {
+              if (window.confirm('Are you sure you want to leave the game?')) {
+                wsService.sendAction('LEAVE_ROOM');
+              }
+            }}
+          >
+            Leave Game
+          </button>
           <span className="topbar-logo">UNO</span>
         </div>
         <div className="topbar-center">
@@ -232,9 +247,8 @@ export default function GamePage() {
       <div className="my-hand-area">
         <PlayerHand
           cards={privateState.hand}
-          currentColor={publicState.currentColor}
-          topCard={publicState.topCard}
           isMyTurn={!!amICurrentPlayer}
+          playableCardIds={privateState.playableCardIds}
           onPlayCard={handlePlayCard}
         />
       </div>
