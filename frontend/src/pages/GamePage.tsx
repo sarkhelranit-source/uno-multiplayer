@@ -21,16 +21,39 @@ export default function GamePage() {
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [pendingWildCardId, setPendingWildCardId] = useState<string | null>(null);
   const [localUnoCalled, setLocalUnoCalled] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (publicState?.lastAction) {
+      setToastMessage(publicState.lastAction);
+      const timer = setTimeout(() => {
+        setToastMessage(null);
+      }, 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [publicState?.lastAction]);
 
   useEffect(() => {
     // If not connected, kick back to lobby
     // Normally we'd check wsService connection state, but for simplicity we rely on receiving updates.
-    
+
     const unsubscribe = wsService.subscribe((msg: WsMessage) => {
       switch (msg.type) {
         case 'gameStateUpdate':
           setPublicState(msg.publicState);
           setPrivateState(msg.privateState);
+          break;
+        case 'playerDisconnected':
+          setPublicState(prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              players: prev.players.map(p =>
+                p.name === msg.playerName ? { ...p, isDisconnected: true } : p
+              ),
+              lastAction: `${msg.playerName} disconnected.`
+            };
+          });
           break;
         case 'leftRoom':
           navigate('/');
@@ -43,7 +66,7 @@ export default function GamePage() {
 
   const handlePlayCard = useCallback((cardId: string) => {
     if (!privateState || !publicState) return;
-    
+
     const card = privateState.hand.find(c => c.id === cardId);
     if (!card) return;
 
@@ -65,13 +88,13 @@ export default function GamePage() {
 
   const handleColorSelected = useCallback((color: string) => {
     if (!pendingWildCardId) return;
-    
-    wsService.sendAction('PLAY_CARD', { 
-      cardId: pendingWildCardId, 
+
+    wsService.sendAction('PLAY_CARD', {
+      cardId: pendingWildCardId,
       wildColor: color,
       unoCalled: localUnoCalled
     });
-    
+
     setShowColorPicker(false);
     setPendingWildCardId(null);
     if (localUnoCalled) setLocalUnoCalled(false);
@@ -107,7 +130,7 @@ export default function GamePage() {
   // Actually, we can check if `playableCardIds` has items. If so, it might be our turn.
   // The most robust way is checking the player's sessionId against the game's players, but we don't broadcast sessionId to everyone.
   // However, `privateState.playableCardIds` is populated only when it's our turn!
-                   
+
   // Let's assume wsService has `getSessionId()` but we didn't broadcast it. 
   // For now, let's look at `publicState.players[publicState.currentPlayerIndex]`.
   // Wait, `publicState.players` is an array of PlayerInfo. We can match by something. 
@@ -116,7 +139,7 @@ export default function GamePage() {
   // For now, let's use the hand matching or assume we are the one who has the same name as what we joined with.
 
   const mySessionId = wsService.getSessionId();
-  
+
   // Only show OTHER players in the top row
   const opponents = publicState.players
     .filter(p => p.sessionId !== mySessionId)
@@ -141,8 +164,8 @@ export default function GamePage() {
       {/* Top bar */}
       <div className="game-topbar glass">
         <div className="topbar-left" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <button 
-            className="btn btn-secondary btn-sm" 
+          <button
+            className="btn btn-secondary btn-sm"
             onClick={() => {
               if (window.confirm('Are you sure you want to leave the game?')) {
                 wsService.sendAction('LEAVE_ROOM');
@@ -178,6 +201,34 @@ export default function GamePage() {
         </div>
       </div>
 
+      {/* Action Toast */}
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div
+            className="action-toast"
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -50 }}
+            style={{
+              position: 'fixed',
+              top: '80px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              background: 'rgba(0, 0, 0, 0.75)',
+              color: 'white',
+              padding: '12px 24px',
+              borderRadius: '24px',
+              zIndex: 1000,
+              fontWeight: 'bold',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+              border: '1px solid rgba(255,255,255,0.1)'
+            }}
+          >
+            {toastMessage}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Opponents */}
       <OpponentRow opponents={opponents} />
 
@@ -197,9 +248,9 @@ export default function GamePage() {
         </motion.div>
 
         {amICurrentPlayer && privateState.hasDrawn && (
-          <button 
-            className="btn btn-secondary" 
-            style={{ position: 'absolute', bottom: '-60px' }} 
+          <button
+            className="btn btn-secondary"
+            style={{ position: 'absolute', bottom: '-60px' }}
             onClick={() => wsService.sendAction('PASS_AFTER_DRAW')}
           >
             Pass Turn
@@ -226,20 +277,21 @@ export default function GamePage() {
       </div>
 
       {/* UNO Call Button */}
-      {privateState.hand.length <= 2 && (
+      {privateState.hand.length === 1 && (
         <motion.div
           className="uno-call-area"
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 400 }}
         >
-          <button
+          <motion.button
             id="call-uno-btn"
             className="btn btn-uno-red btn-lg uno-call-btn"
             onClick={handleCallUno}
+            whileTap={{ scale: 0.9 }}
           >
             UNO!
-          </button>
+          </motion.button>
         </motion.div>
       )}
 

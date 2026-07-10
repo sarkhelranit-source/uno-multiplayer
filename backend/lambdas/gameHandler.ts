@@ -209,6 +209,30 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return { statusCode: 400, body: result.error || "Action failed." };
     }
 
+    if (game.winner) {
+      // Broadcast game over state first so clients know the game ended
+      await broadcastGameState(game, apigwManagementApi);
+
+      // Clean up connections
+      const deletePromises: Promise<any>[] = game.players.map(p => 
+        p.connectionId ? docClient.send(new DeleteCommand({
+          TableName: CONNECTIONS_TABLE,
+          Key: { connectionId: p.connectionId }
+        })) : Promise.resolve()
+      );
+      
+      // Clean up game room
+      deletePromises.push(
+        docClient.send(new DeleteCommand({
+          TableName: GAMES_TABLE,
+          Key: { roomId: game.roomId }
+        }))
+      );
+
+      await Promise.all(deletePromises);
+      return { statusCode: 200, body: "Game ended and cleaned up." };
+    }
+
     // 5. Save Updated Game State
     await saveGame(game);
 
@@ -472,6 +496,7 @@ async function handleLeaveRoom(
       if (leavingPlayer.hand.length > 0) {
         game.drawPile.push(...leavingPlayer.hand);
       }
+      game.lastAction = `${leavingPlayer.name} left the game.`;
     }
   }
 
@@ -479,7 +504,7 @@ async function handleLeaveRoom(
   await saveGame(game);
 
   // Broadcast updated state to remaining players
-  if (game.status === 'playing') {
+  if (game.status === 'playing' || game.status === 'finished') {
     await broadcastGameState(game, apigwManagementApi);
   } else {
     const lobbyState = {

@@ -61,6 +61,10 @@ class WebSocketService {
         this.pingInterval = setInterval(() => {
           this.sendAction('PING');
         }, 5 * 60 * 1000);
+
+        if (roomId) {
+          this.sendAction('RECONNECT', { roomId, sessionId: this.sessionId });
+        }
         
         resolve();
       };

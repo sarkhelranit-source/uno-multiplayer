@@ -408,12 +408,13 @@ export function playCard(
   // If the player is going down to 1 card and hasn't called UNO, they get penalized.
   // (UNO must be called BEFORE playing the second-to-last card)
   const unoEvents: GameEvent[] = [];
-  if (player.hand.length === 2 && !player.hasCalledUno) {
+  if (player.hand.length === 1 && !player.hasCalledUno) {
     // Player forgot to call UNO! Draw 2 penalty cards.
     for (let i = 0; i < UNO_PENALTY_CARDS; i++) {
       const penaltyCard = drawOneCard(game);
       if (penaltyCard) player.hand.push(penaltyCard);
     }
+    if (player.hand.length > 1) player.hasCalledUno = false;
     unoEvents.push({ type: 'unoFailed', playerName: player.name, penaltyCards: UNO_PENALTY_CARDS });
   }
 
@@ -548,6 +549,7 @@ export function drawCard(
       const card = drawOneCard(game);
       if (card) player.hand.push(card);
     }
+    if (player.hand.length > 1) player.hasCalledUno = false;
 
     advanceTurn(game);
 
@@ -566,6 +568,7 @@ export function drawCard(
   }
 
   player.hand.push(drawnCard);
+  if (player.hand.length > 1) player.hasCalledUno = false;
 
   // Check if the drawn card can be played immediately
   const canPlayDrawn = isCardPlayable(drawnCard, game);
@@ -688,6 +691,8 @@ export function handleTurnTimeout(game: UnoGame): ActionResult {
       if (card) player.hand.push(card);
     }
   }
+  
+  if (player.hand.length > 1) player.hasCalledUno = false;
 
   game.lastAction = `${player.name} timed out`;
   advanceTurn(game);
