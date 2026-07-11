@@ -35,6 +35,8 @@ jobs:
         run: npm ci
 
       - name: Build Frontend
+        env:
+          VITE_WEBSOCKET_URL: ${{ secrets.VITE_WEBSOCKET_URL }}
         run: npm run build
 
       - name: Configure AWS Credentials
