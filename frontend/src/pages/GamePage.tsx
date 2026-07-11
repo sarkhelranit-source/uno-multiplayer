@@ -34,9 +34,23 @@ export default function GamePage() {
   }, [publicState?.lastAction]);
 
   useEffect(() => {
-    // If not connected, kick back to lobby
-    // Normally we'd check wsService connection state, but for simplicity we rely on receiving updates.
+    // If we have no game state (e.g. page reload), attempt reconnection
+    if (!publicState && !privateState) {
+      const savedRoomId = sessionStorage.getItem('uno_room_id');
+      if (savedRoomId) {
+        wsService.connect(savedRoomId).catch(() => {
+          sessionStorage.removeItem('uno_room_id');
+          navigate('/');
+        });
+      } else {
+        // No saved room, go home
+        navigate('/');
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run only on mount
 
+  useEffect(() => {
     const unsubscribe = wsService.subscribe((msg: WsMessage) => {
       switch (msg.type) {
         case 'gameStateUpdate':
@@ -56,13 +70,21 @@ export default function GamePage() {
           });
           break;
         case 'leftRoom':
+          sessionStorage.removeItem('uno_room_id');
           navigate('/');
+          break;
+        case 'error':
+          // If reconnection failed (room gone, player not found), go home
+          if (!publicState) {
+            sessionStorage.removeItem('uno_room_id');
+            navigate('/');
+          }
           break;
       }
     });
 
     return () => unsubscribe();
-  }, [navigate]);
+  }, [navigate, publicState]);
 
   const handlePlayCard = useCallback((cardId: string) => {
     if (!privateState || !publicState) return;
@@ -168,6 +190,7 @@ export default function GamePage() {
             className="btn btn-secondary btn-sm"
             onClick={() => {
               if (window.confirm('Are you sure you want to leave the game?')) {
+                sessionStorage.removeItem('uno_room_id');
                 wsService.sendAction('LEAVE_ROOM');
               }
             }}
@@ -319,7 +342,11 @@ export default function GamePage() {
         }}>
           <h1 style={{ fontSize: '4rem', color: 'var(--uno-yellow)' }}>Game Over!</h1>
           <h2 style={{ color: 'white', marginTop: '1rem' }}>{publicState.winner} won the game!</h2>
-          <button className="btn btn-primary btn-lg" style={{ marginTop: '2rem' }} onClick={() => navigate('/')}>
+          <button className="btn btn-primary btn-lg" style={{ marginTop: '2rem' }} onClick={() => {
+              sessionStorage.removeItem('uno_room_id');
+              wsService.disconnect();
+              navigate('/');
+            }}>
             Back to Home
           </button>
         </div>

@@ -32,12 +32,14 @@ export default function LobbyPage() {
           setPlayers(msg.players);
           setJoined(true);
           setIsConnecting(false);
+          sessionStorage.setItem('uno_room_id', msg.roomId);
           break;
         case 'lobbyUpdate':
           setActiveRoomId(msg.roomId);
           setPlayers(msg.players);
           setJoined(true);
           setIsConnecting(false);
+          sessionStorage.setItem('uno_room_id', msg.roomId);
           break;
         case 'gameStateUpdate':
           // Game started, navigate to game page and pass the initial state
@@ -53,6 +55,7 @@ export default function LobbyPage() {
           setJoined(false);
           setActiveRoomId('');
           setPlayers([]);
+          sessionStorage.removeItem('uno_room_id');
           break;
         case 'error':
           setErrorMsg(msg.message);
@@ -107,6 +110,7 @@ export default function LobbyPage() {
 
   const handleLeaveRoom = () => {
     wsService.sendAction('LEAVE_ROOM');
+    sessionStorage.removeItem('uno_room_id');
     navigate('/');
   };
 
