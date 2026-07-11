@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import PlayerHand from '../components/PlayerHand';
@@ -26,36 +26,32 @@ export default function GamePage() {
   // UNO Animation states
   const [showUnoCelebration, setShowUnoCelebration] = useState(false);
   const [unoWarningMessage, setUnoWarningMessage] = useState<string | null>(null);
+
   useEffect(() => {
     if (publicState?.lastAction) {
-      setToastMessage(publicState.lastAction);
-      const timer = setTimeout(() => {
-        setToastMessage(null);
-      }, 3500);
-      return () => clearTimeout(timer);
-    }
-  }, [publicState?.lastAction]);
-
-  // Check for UNO calls to trigger animations
-  const previousPlayers = useRef<PublicGameState['players']>([]);
-  useEffect(() => {
-    if (!publicState) return;
-
-    publicState.players.forEach((player, i) => {
-      const prevPlayer = previousPlayers.current[i];
-      if (prevPlayer && !prevPlayer.hasCalledUno && player.hasCalledUno) {
-        if (i === privateState?.myPlayerIndex) {
+      const actionStr = publicState.lastAction;
+      
+      // Check if it's an UNO call action
+      if (actionStr.includes('called UNO!')) {
+        // Is it the local player?
+        const myPlayerName = publicState.players[privateState?.myPlayerIndex || 0]?.name;
+        if (actionStr.startsWith(myPlayerName)) {
           setShowUnoCelebration(true);
           setTimeout(() => setShowUnoCelebration(false), 3000);
         } else {
-          setUnoWarningMessage(`${player.name} called UNO!`);
+          setUnoWarningMessage(actionStr);
           setTimeout(() => setUnoWarningMessage(null), 3000);
         }
+      } else {
+        // Standard action toast
+        setToastMessage(actionStr);
+        const timer = setTimeout(() => {
+          setToastMessage(null);
+        }, 3500);
+        return () => clearTimeout(timer);
       }
-    });
-
-    previousPlayers.current = publicState.players;
-  }, [publicState, privateState?.myPlayerIndex]);
+    }
+  }, [publicState?.lastAction, publicState?.players, privateState?.myPlayerIndex]);
 
   useEffect(() => {
     // If we have no game state (e.g. page reload), attempt reconnection
@@ -245,9 +241,9 @@ export default function GamePage() {
         {showUnoCelebration && (
           <motion.div
             className="uno-celebration-overlay"
-            initial={{ scale: 0, opacity: 0, rotate: -20 }}
-            animate={{ scale: 1, opacity: 1, rotate: 0 }}
-            exit={{ scale: 1.5, opacity: 0 }}
+            initial={{ x: '-50%', y: '-50%', scale: 0, opacity: 0, rotate: -20 }}
+            animate={{ x: '-50%', y: '-50%', scale: 1, opacity: 1, rotate: 0 }}
+            exit={{ x: '-50%', y: '-50%', scale: 1.5, opacity: 0 }}
           >
             🎉 UNO! 🎉
           </motion.div>
@@ -255,9 +251,9 @@ export default function GamePage() {
         {unoWarningMessage && (
           <motion.div
             className="uno-warning-overlay"
-            initial={{ y: -100, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -100, opacity: 0 }}
+            initial={{ x: '-50%', y: '-100px', opacity: 0 }}
+            animate={{ x: '-50%', y: 0, opacity: 1 }}
+            exit={{ x: '-50%', y: '-100px', opacity: 0 }}
           >
             ⚠️ {unoWarningMessage}
           </motion.div>
@@ -269,14 +265,14 @@ export default function GamePage() {
         {toastMessage && (
           <motion.div
             className="action-toast"
-            initial={{ opacity: 0, y: -50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -50 }}
+            initial={{ x: '-50%', y: '-50%', opacity: 0 }}
+            animate={{ x: '-50%', y: '-50%', opacity: 1 }}
+            exit={{ x: '-50%', y: '-50%', opacity: 0 }}
             style={{
               position: 'fixed',
-              top: '80px',
+              top: '50%',
               left: '50%',
-              transform: 'translateX(-50%)',
+              transform: 'translate(-50%, -50%)',
               background: 'rgba(0, 0, 0, 0.75)',
               color: 'white',
               padding: '12px 24px',
@@ -284,7 +280,9 @@ export default function GamePage() {
               zIndex: 1000,
               fontWeight: 'bold',
               boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-              border: '1px solid rgba(255,255,255,0.1)'
+              border: '1px solid rgba(255,255,255,0.1)',
+              textAlign: 'center',
+              whiteSpace: 'nowrap'
             }}
           >
             {toastMessage}

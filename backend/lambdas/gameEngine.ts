@@ -656,6 +656,7 @@ export function callUno(
   }
 
   player.hasCalledUno = true;
+  game.lastAction = `${player.name} called UNO!`;
 
   return {
     success: true,
