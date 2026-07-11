@@ -740,14 +740,16 @@ export function getPublicGameState(game: UnoGame) {
  * Gets the private state for a specific player (their hand).
  */
 export function getPrivatePlayerState(game: UnoGame, connectionId: string) {
-  const player = game.players.find(p => p.connectionId === connectionId);
-  if (!player) return null;
+  const playerIndex = game.players.findIndex(p => p.connectionId === connectionId);
+  if (playerIndex === -1) return null;
+  const player = game.players[playerIndex];
 
   return {
     hand: player.hand,
-    playableCardIds: game.status === 'playing' && game.players[game.currentPlayerIndex].connectionId === connectionId
+    playableCardIds: game.status === 'playing' && game.currentPlayerIndex === playerIndex
       ? player.hand.filter(c => isCardPlayable(c, game)).map(c => c.id)
       : [],
     hasDrawn: game.hasDrawnThisTurn,
+    myPlayerIndex: playerIndex,
   };
 }

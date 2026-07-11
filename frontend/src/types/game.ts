@@ -34,6 +34,7 @@ export interface PrivateGameState {
   hand: Card[];
   playableCardIds: string[];
   hasDrawn?: boolean;
+  myPlayerIndex: number;
 }
 
 // WebSocket incoming messages

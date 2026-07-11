@@ -147,27 +147,16 @@ export default function GamePage() {
     );
   }
 
-  // Better approach: We need our own player index. We can find it by checking hand length or some ID, 
-  // but for now let's just determine it by checking if we have playable cards when it's supposedly our turn.
-  // Actually, we can check if `playableCardIds` has items. If so, it might be our turn.
-  // The most robust way is checking the player's sessionId against the game's players, but we don't broadcast sessionId to everyone.
-  // However, `privateState.playableCardIds` is populated only when it's our turn!
-
-  // Let's assume wsService has `getSessionId()` but we didn't broadcast it. 
-  // For now, let's look at `publicState.players[publicState.currentPlayerIndex]`.
-  // Wait, `publicState.players` is an array of PlayerInfo. We can match by something. 
-  // Let's just find our index by tracking `playableCardIds`. If it's our turn, we are the `currentPlayerIndex`.
-  // Actually, `connectionHandler` doesn't send my player index. Let's fix this in the backend later if needed.
-  // For now, let's use the hand matching or assume we are the one who has the same name as what we joined with.
-
-  const mySessionId = wsService.getSessionId();
+  // Use the authoritative player index from the backend's private state.
+  // The backend knows exactly which player we are (by connectionId),
+  // so this is always correct regardless of session/connection lifecycle.
+  const myPlayerIndex = privateState.myPlayerIndex;
 
   // Only show OTHER players in the top row
   const opponents = publicState.players
-    .filter(p => p.sessionId !== mySessionId)
+    .filter((_, index) => index !== myPlayerIndex)
     .map((p) => {
-      // Find their actual index in the game to check if it's their turn
-      const actualIndex = publicState.players.findIndex(orig => orig.sessionId === p.sessionId);
+      const actualIndex = publicState.players.indexOf(p);
       return {
         name: p.name,
         cardCount: p.cardCount || 0,
@@ -178,8 +167,7 @@ export default function GamePage() {
     });
 
   // Check if it's OUR turn
-  const myPlayerIndex = publicState.players.findIndex(p => p.sessionId === mySessionId);
-  const amICurrentPlayer = myPlayerIndex !== -1 && myPlayerIndex === publicState.currentPlayerIndex;
+  const amICurrentPlayer = myPlayerIndex === publicState.currentPlayerIndex;
 
   return (
     <div className="game-page">
