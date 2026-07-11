@@ -78,6 +78,10 @@ export default function GamePage() {
           if (!publicState) {
             sessionStorage.removeItem('uno_room_id');
             navigate('/');
+          } else {
+            // Show error as a toast if game is active (e.g. backend rejected a card play)
+            setToastMessage(msg.message);
+            setTimeout(() => setToastMessage(null), 3000);
           }
           break;
       }
