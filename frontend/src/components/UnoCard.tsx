@@ -52,10 +52,20 @@ export default function UnoCard({
       onClick={playable ? onClick : undefined}
       style={style}
       initial={{ opacity: 0, y: -30, rotateZ: -8 }}
-      animate={{ opacity: 1, y: 0, rotateZ: 0 }}
+      animate={{ 
+        opacity: 1, 
+        y: playable ? [0, -15, 0] : 0, 
+        rotateZ: 0 
+      }}
       exit={{ opacity: 0, y: -60, scale: 0.5 }}
-      transition={{ delay, type: 'spring', stiffness: 300, damping: 25 }}
-      whileHover={playable ? { y: -14, scale: 1.08 } : {}}
+      transition={{ 
+        opacity: { delay, type: 'spring', stiffness: 300, damping: 25 },
+        rotateZ: { delay, type: 'spring', stiffness: 300, damping: 25 },
+        y: playable 
+          ? { delay, duration: 1.5, repeat: Infinity, ease: "easeInOut" }
+          : { delay, type: 'spring', stiffness: 300, damping: 25 }
+      }}
+      whileHover={playable ? { scale: 1.08 } : {}}
       whileTap={playable ? { scale: 0.95 } : {}}
       layout
     >
