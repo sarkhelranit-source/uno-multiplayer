@@ -46,9 +46,9 @@ export default function PlayerHand({
             // A card is only playable if it's your turn AND the backend says it's playable
             const playable = isMyTurn && playableCardIds.includes(card.id);
             
-            // Apply base fan arc offset, and add an extra 20px lift for playable cards on mobile
+            // Apply base fan arc offset, and add an extra 40px lift for playable cards on mobile
             const baseOffset = Math.abs(angle) * 0.4;
-            const yOffset = isMobile && playable ? baseOffset - 20 : baseOffset;
+            const yOffset = isMobile && playable ? baseOffset - 40 : baseOffset;
 
             return (
               <UnoCard
@@ -60,7 +60,7 @@ export default function PlayerHand({
                 onClick={() => playable && onPlayCard(card.id)}
                 delay={index * 0.04}
                 style={{
-                  transform: `rotate(${angle}deg) translateY(${yOffset}px)`,
+                  transform: `translateY(${yOffset}px) rotate(${angle}deg)`,
                   marginLeft: index === 0 ? 0 : '-18px',
                   zIndex: index,
                 }}

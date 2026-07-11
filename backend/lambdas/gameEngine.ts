@@ -572,23 +572,14 @@ export function drawCard(
   player.hand.push(drawnCard);
   if (player.hand.length > 1) player.hasCalledUno = false;
 
-  // Check if the drawn card can be played immediately
-  const canPlayDrawn = isCardPlayable(drawnCard, game);
-
-  if (!canPlayDrawn) {
-    // Can't play it — turn ends
-    advanceTurn(game);
-    game.lastAction = `${player.name} drew a card and passed`;
-  } else {
-    // Player can choose to play it — turn does NOT advance yet
-    game.hasDrawnThisTurn = true;
-    game.lastAction = `${player.name} drew a card`;
-  }
+  // The turn ends immediately after drawing
+  advanceTurn(game);
+  game.lastAction = `${player.name} drew a card and passed`;
 
   return {
     success: true,
     drawnCard,
-    canPlayDrawn,
+    canPlayDrawn: false, // Player can no longer play drawn cards
     event: { type: 'cardDrawn', playerName: player.name, count: 1 },
   };
 }

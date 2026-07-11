@@ -282,7 +282,9 @@ export default function GamePage() {
               boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
               border: '1px solid rgba(255,255,255,0.1)',
               textAlign: 'center',
-              whiteSpace: 'nowrap'
+              whiteSpace: 'normal',
+              wordWrap: 'break-word',
+              maxWidth: '90vw'
             }}
           >
             {toastMessage}
