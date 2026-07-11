@@ -563,6 +563,9 @@ export function drawCard(
     };
   }
 
+  // Check if player had a playable card BEFORE drawing
+  const hadPlayableCard = player.hand.some(c => isCardPlayable(c, game));
+
   // Normal draw: draw exactly 1 card
   const drawnCard = drawOneCard(game);
   if (!drawnCard) {
@@ -572,14 +575,24 @@ export function drawCard(
   player.hand.push(drawnCard);
   if (player.hand.length > 1) player.hasCalledUno = false;
 
-  // The turn ends immediately after drawing
-  advanceTurn(game);
-  game.lastAction = `${player.name} drew a card and passed`;
+  // If they didn't have a playable card, check if the NEW drawn card is playable
+  const isDrawnPlayable = isCardPlayable(drawnCard, game);
+  const canPlayDrawn = !hadPlayableCard && isDrawnPlayable;
+
+  if (!canPlayDrawn) {
+    // Turn ends immediately (either they had a playable card already, or the drawn card isn't playable)
+    advanceTurn(game);
+    game.lastAction = `${player.name} drew a card and passed`;
+  } else {
+    // They had no playable cards, but drew one! Let them play it.
+    game.hasDrawnThisTurn = true;
+    game.lastAction = `${player.name} drew a card`;
+  }
 
   return {
     success: true,
     drawnCard,
-    canPlayDrawn: false, // Player can no longer play drawn cards
+    canPlayDrawn,
     event: { type: 'cardDrawn', playerName: player.name, count: 1 },
   };
 }
