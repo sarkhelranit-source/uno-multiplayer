@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import UnoCard from './UnoCard';
 import './PlayerHand.css';
@@ -21,6 +22,15 @@ export default function PlayerHand({
   playableCardIds,
   onPlayCard,
 }: PlayerHandProps) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth <= 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   const totalCards = cards.length;
   const maxFanAngle = Math.min(totalCards * 3, 40);
 
@@ -32,9 +42,13 @@ export default function PlayerHand({
             const angle = totalCards > 1
               ? -maxFanAngle / 2 + (index / (totalCards - 1)) * maxFanAngle
               : 0;
-            const yOffset = Math.abs(angle) * 0.4;
+            
             // A card is only playable if it's your turn AND the backend says it's playable
             const playable = isMyTurn && playableCardIds.includes(card.id);
+            
+            // Apply base fan arc offset, and add an extra 20px lift for playable cards on mobile
+            const baseOffset = Math.abs(angle) * 0.4;
+            const yOffset = isMobile && playable ? baseOffset - 20 : baseOffset;
 
             return (
               <UnoCard

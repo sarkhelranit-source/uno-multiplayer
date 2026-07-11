@@ -196,7 +196,7 @@ function applyFirstCardEffect(game: UnoGame, card: Card): void {
 
 function defaultSettings(): GameSettings {
   return {
-    stackDrawCards: false,  // Official: no stacking
+    stackDrawCards: true,   // Stack +2 on +2, +4 on +4, and +4 on +2
     forcePlay: false,       // Official: player chooses whether to play drawn card
     jumpIn: false,          // Official: no jump-in
     drawUntilMatch: false,  // Official: draw one, then pass
@@ -224,9 +224,11 @@ export function isCardPlayable(card: Card, game: UnoGame): boolean {
     if (!game.settings.stackDrawCards) {
       return false;
     }
-    // If stacking is enabled, they can only play another draw card of the same type
+    // If stacking is enabled, they can play draw2 on draw2, wild4 on wild4, and wild4 on draw2
     const topCard = game.discardPile[game.discardPile.length - 1];
-    if (topCard.value === 'draw2' && card.value === 'draw2') return true;
+    if (topCard.value === 'draw2') {
+      if (card.value === 'draw2' || card.value === 'wild4') return true;
+    }
     if (topCard.value === 'wild4' && card.value === 'wild4') return true;
     return false;
   }

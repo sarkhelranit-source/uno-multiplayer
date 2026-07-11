@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import PlayerHand from '../components/PlayerHand';
@@ -22,7 +22,10 @@ export default function GamePage() {
   const [pendingWildCardId, setPendingWildCardId] = useState<string | null>(null);
   const [localUnoCalled, setLocalUnoCalled] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-
+  
+  // UNO Animation states
+  const [showUnoCelebration, setShowUnoCelebration] = useState(false);
+  const [unoWarningMessage, setUnoWarningMessage] = useState<string | null>(null);
   useEffect(() => {
     if (publicState?.lastAction) {
       setToastMessage(publicState.lastAction);
@@ -32,6 +35,27 @@ export default function GamePage() {
       return () => clearTimeout(timer);
     }
   }, [publicState?.lastAction]);
+
+  // Check for UNO calls to trigger animations
+  const previousPlayers = useRef<PublicGameState['players']>([]);
+  useEffect(() => {
+    if (!publicState) return;
+
+    publicState.players.forEach((player, i) => {
+      const prevPlayer = previousPlayers.current[i];
+      if (prevPlayer && !prevPlayer.hasCalledUno && player.hasCalledUno) {
+        if (i === privateState?.myPlayerIndex) {
+          setShowUnoCelebration(true);
+          setTimeout(() => setShowUnoCelebration(false), 3000);
+        } else {
+          setUnoWarningMessage(`${player.name} called UNO!`);
+          setTimeout(() => setUnoWarningMessage(null), 3000);
+        }
+      }
+    });
+
+    previousPlayers.current = publicState.players;
+  }, [publicState, privateState?.myPlayerIndex]);
 
   useEffect(() => {
     // If we have no game state (e.g. page reload), attempt reconnection
@@ -179,7 +203,7 @@ export default function GamePage() {
       <div className="game-topbar glass">
         <div className="topbar-left" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <button
-            className="btn btn-secondary btn-sm"
+            className="btn btn-danger btn-sm"
             onClick={() => {
               if (window.confirm('Are you sure you want to leave the game?')) {
                 sessionStorage.removeItem('uno_room_id');
@@ -187,7 +211,7 @@ export default function GamePage() {
               }
             }}
           >
-            Leave Game
+            🚪 Leave
           </button>
           <span className="topbar-logo">UNO</span>
         </div>
@@ -215,6 +239,30 @@ export default function GamePage() {
           </span>
         </div>
       </div>
+
+      {/* UNO Celebration / Warning Overlays */}
+      <AnimatePresence>
+        {showUnoCelebration && (
+          <motion.div
+            className="uno-celebration-overlay"
+            initial={{ scale: 0, opacity: 0, rotate: -20 }}
+            animate={{ scale: 1, opacity: 1, rotate: 0 }}
+            exit={{ scale: 1.5, opacity: 0 }}
+          >
+            🎉 UNO! 🎉
+          </motion.div>
+        )}
+        {unoWarningMessage && (
+          <motion.div
+            className="uno-warning-overlay"
+            initial={{ y: -100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -100, opacity: 0 }}
+          >
+            ⚠️ {unoWarningMessage}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Action Toast */}
       <AnimatePresence>
