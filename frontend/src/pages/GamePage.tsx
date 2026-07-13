@@ -18,6 +18,7 @@ export default function GamePage() {
   const [privateState, setPrivateState] = useState<PrivateGameState | null>(location.state?.privateState || null);
 
   // UI State
+  const [isReconnecting, setIsReconnecting] = useState(!wsService.isConnected());
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [pendingWildCardId, setPendingWildCardId] = useState<string | null>(null);
   const [localUnoCalled, setLocalUnoCalled] = useState(false);
@@ -54,18 +55,17 @@ export default function GamePage() {
   }, [publicState?.lastAction, publicState?.players, privateState?.myPlayerIndex]);
 
   useEffect(() => {
-    // If we have no game state (e.g. page reload), attempt reconnection
-    if (!publicState && !privateState) {
-      const savedRoomId = sessionStorage.getItem('uno_room_id');
-      if (savedRoomId) {
-        wsService.connect(savedRoomId).catch(() => {
-          sessionStorage.removeItem('uno_room_id');
-          navigate('/');
-        });
-      } else {
-        // No saved room, go home
+    // Always ensure connection on mount.
+    // In SPA navigation, it's already connected. On reload, this reconnects.
+    const savedRoomId = sessionStorage.getItem('uno_room_id');
+    if (savedRoomId) {
+      wsService.connect(savedRoomId).catch(() => {
+        sessionStorage.removeItem('uno_room_id');
         navigate('/');
-      }
+      });
+    } else {
+      // No saved room, go home
+      navigate('/');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run only on mount
@@ -76,6 +76,7 @@ export default function GamePage() {
         case 'gameStateUpdate':
           setPublicState(msg.publicState);
           setPrivateState(msg.privateState);
+          setIsReconnecting(false);
           break;
         case 'playerDisconnected':
           setPublicState(prev => {
@@ -163,10 +164,12 @@ export default function GamePage() {
     wild: 'var(--accent-primary)',
   };
 
-  if (!publicState || !privateState) {
+  if (!publicState || !privateState || isReconnecting) {
     return (
       <div className="game-page" style={{ justifyContent: 'center', alignItems: 'center' }}>
-        <h2 style={{ color: 'white' }}>Loading game state...</h2>
+        <h2 style={{ color: 'white' }}>
+          {isReconnecting ? 'Reconnecting to game...' : 'Loading game state...'}
+        </h2>
       </div>
     );
   }

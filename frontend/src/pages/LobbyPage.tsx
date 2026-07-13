@@ -10,7 +10,7 @@ export default function LobbyPage() {
   const [searchParams] = useSearchParams();
   const mode = searchParams.get('mode') || 'create';
 
-  const [playerName, setPlayerName] = useState('');
+  const [playerName, setPlayerName] = useState(sessionStorage.getItem('uno_player_name') || '');
   const [roomCode, setRoomCode] = useState('');
   
   // State for waiting room
@@ -22,6 +22,20 @@ export default function LobbyPage() {
   const [copied, setCopied] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(!!sessionStorage.getItem('uno_room_id') && !wsService.isConnected());
+
+  useEffect(() => {
+    const savedRoomId = sessionStorage.getItem('uno_room_id');
+    if (savedRoomId && !wsService.isConnected()) {
+      setIsReconnecting(true);
+      setIsConnecting(true);
+      wsService.connect(savedRoomId).catch(() => {
+        setIsConnecting(false);
+        setIsReconnecting(false);
+        sessionStorage.removeItem('uno_room_id');
+      });
+    }
+  }, []);
 
   useEffect(() => {
     // Subscribe to WebSocket messages
@@ -32,6 +46,7 @@ export default function LobbyPage() {
           setPlayers(msg.players);
           setJoined(true);
           setIsConnecting(false);
+          setIsReconnecting(false);
           sessionStorage.setItem('uno_room_id', msg.roomId);
           break;
         case 'lobbyUpdate':
@@ -39,6 +54,7 @@ export default function LobbyPage() {
           setPlayers(msg.players);
           setJoined(true);
           setIsConnecting(false);
+          setIsReconnecting(false);
           sessionStorage.setItem('uno_room_id', msg.roomId);
           break;
         case 'gameStateUpdate':
@@ -60,6 +76,8 @@ export default function LobbyPage() {
         case 'error':
           setErrorMsg(msg.message);
           setIsConnecting(false);
+          setIsReconnecting(false);
+          sessionStorage.removeItem('uno_room_id');
           break;
       }
     });
@@ -75,6 +93,7 @@ export default function LobbyPage() {
     setErrorMsg('');
     try {
       await wsService.connect();
+      sessionStorage.setItem('uno_player_name', playerName.trim());
       wsService.sendAction('CREATE_ROOM', { playerName: playerName.trim() });
     } catch (err) {
       setErrorMsg('Failed to connect to server.');
@@ -88,6 +107,7 @@ export default function LobbyPage() {
     setErrorMsg('');
     try {
       await wsService.connect();
+      sessionStorage.setItem('uno_player_name', playerName.trim());
       wsService.sendAction('JOIN_ROOM', { 
         roomId: roomCode.toUpperCase(), 
         playerName: playerName.trim() 
@@ -117,6 +137,14 @@ export default function LobbyPage() {
   const isHost = players.find(p => p.name === playerName)?.isHost || false;
 
   // Pre-join: name entry + room code
+  if (isReconnecting && !joined) {
+    return (
+      <div className="page lobby-page" style={{ justifyContent: 'center', alignItems: 'center' }}>
+        <h2 style={{ color: 'white' }}>Reconnecting to lobby...</h2>
+      </div>
+    );
+  }
+
   if (!joined) {
     return (
       <div className="page lobby-page">

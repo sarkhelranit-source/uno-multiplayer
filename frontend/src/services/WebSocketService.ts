@@ -126,6 +126,10 @@ class WebSocketService {
   public getSessionId() {
     return this.sessionId;
   }
+
+  public isConnected() {
+    return this.ws !== null && this.ws.readyState === WebSocket.OPEN;
+  }
 }
 
 // Export a singleton instance
