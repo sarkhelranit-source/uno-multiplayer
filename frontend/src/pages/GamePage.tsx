@@ -23,6 +23,9 @@ export default function GamePage() {
   const [pendingWildCardId, setPendingWildCardId] = useState<string | null>(null);
   const [localUnoCalled, setLocalUnoCalled] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [timeLeftMs, setTimeLeftMs] = useState<number>(300_000);
+  const [kickoutReason, setKickoutReason] = useState<string | null>(null);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   
   // UNO Animation states
   const [showUnoCelebration, setShowUnoCelebration] = useState(false);
@@ -54,6 +57,29 @@ export default function GamePage() {
     }
   }, [publicState?.lastAction, publicState?.players, privateState?.myPlayerIndex]);
 
+  // Turn Timer Countdown
+  useEffect(() => {
+    if (publicState?.status !== 'playing' || !publicState.turnStartedAt) {
+      return;
+    }
+
+    const updateTimer = () => {
+      const elapsed = Date.now() - publicState.turnStartedAt!;
+      const remaining = Math.max(0, 300_000 - elapsed);
+      setTimeLeftMs(remaining);
+
+      // If timer hits 0 and it's our turn, send TIMEOUT
+      if (remaining === 0 && privateState?.myPlayerIndex === publicState.currentPlayerIndex) {
+        wsService.sendAction('TIMEOUT');
+      }
+    };
+
+    updateTimer(); // Call immediately
+    const intervalId = setInterval(updateTimer, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [publicState?.status, publicState?.turnStartedAt, publicState?.currentPlayerIndex, privateState?.myPlayerIndex]);
+
   useEffect(() => {
     // Always ensure connection on mount.
     // In SPA navigation, it's already connected. On reload, this reconnects.
@@ -69,6 +95,30 @@ export default function GamePage() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run only on mount
+
+  // Handle automatic reconnection when the app comes back to the foreground
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        const savedRoomId = sessionStorage.getItem('uno_room_id');
+        if (savedRoomId && !wsService.isConnected()) {
+          setIsReconnecting(true);
+          wsService.connect(savedRoomId).catch(() => {
+            sessionStorage.removeItem('uno_room_id');
+            navigate('/');
+          });
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+    };
+  }, [navigate]);
 
   useEffect(() => {
     const unsubscribe = wsService.subscribe((msg: WsMessage) => {
@@ -92,7 +142,12 @@ export default function GamePage() {
           break;
         case 'leftRoom':
           sessionStorage.removeItem('uno_room_id');
-          navigate('/');
+          if (msg.reason) {
+            setKickoutReason(msg.reason);
+            wsService.disconnect();
+          } else {
+            navigate('/');
+          }
           break;
         case 'error':
           // If reconnection failed (room gone, player not found), go home
@@ -196,6 +251,14 @@ export default function GamePage() {
   // Check if it's OUR turn
   const amICurrentPlayer = myPlayerIndex === publicState.currentPlayerIndex;
 
+  // Format the time remaining
+  const formatTime = (ms: number) => {
+    const totalSeconds = Math.ceil(ms / 1000);
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
   return (
     <div className="game-page">
       {/* Top bar */}
@@ -203,12 +266,7 @@ export default function GamePage() {
         <div className="topbar-left" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <button
             className="btn btn-danger btn-sm"
-            onClick={() => {
-              if (window.confirm('Are you sure you want to leave the game?')) {
-                sessionStorage.removeItem('uno_room_id');
-                wsService.sendAction('LEAVE_ROOM');
-              }
-            }}
+            onClick={() => setShowLeaveConfirm(true)}
           >
             🚪 Leave
           </button>
@@ -234,8 +292,22 @@ export default function GamePage() {
         </div>
         <div className="topbar-right">
           <span className="turn-label">
-            {amICurrentPlayer ? '🔥 Your Turn' : "⏳ Waiting..."}
+            {amICurrentPlayer 
+              ? '🔥 Your Turn' 
+              : `⏳ Waiting for ${publicState.players[publicState.currentPlayerIndex]?.name || 'Player'}`}
           </span>
+          {publicState.status === 'playing' && publicState.turnStartedAt && (
+            <span 
+              className="turn-timer" 
+              style={{ 
+                marginLeft: '1rem', 
+                fontWeight: 'bold', 
+                color: timeLeftMs < 60000 ? 'var(--uno-red)' : 'inherit' 
+              }}
+            >
+              ⏱️ {formatTime(timeLeftMs)}
+            </span>
+          )}
         </div>
       </div>
 
@@ -392,6 +464,49 @@ export default function GamePage() {
             }}>
             Back to Home
           </button>
+        </div>
+      )}
+
+      {/* Kickout Overlay */}
+      {kickoutReason && (
+        <div className="winner-overlay" style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 2000,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <h1 style={{ fontSize: '4rem', color: 'var(--uno-red)' }}>Disconnected</h1>
+          <h2 style={{ color: 'white', marginTop: '1rem' }}>{kickoutReason}</h2>
+          <button className="btn btn-primary btn-lg" style={{ marginTop: '2rem' }} onClick={() => {
+              setKickoutReason(null);
+              navigate('/');
+            }}>
+            Back to Home
+          </button>
+        </div>
+      )}
+
+      {/* Leave Confirmation Overlay */}
+      {showLeaveConfirm && (
+        <div className="winner-overlay" style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 2000,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <h2 style={{ color: 'white', marginBottom: '2rem' }}>Are you sure you want to leave the game?</h2>
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            <button 
+              className="btn btn-lg" 
+              style={{ color: 'white', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.3)' }}
+              onClick={() => setShowLeaveConfirm(false)}
+            >
+              Cancel
+            </button>
+            <button className="btn btn-danger btn-lg" onClick={() => {
+              setShowLeaveConfirm(false);
+              sessionStorage.removeItem('uno_room_id');
+              wsService.sendAction('LEAVE_ROOM');
+            }}>
+              Yes, Leave
+            </button>
+          </div>
         </div>
       )}
     </div>

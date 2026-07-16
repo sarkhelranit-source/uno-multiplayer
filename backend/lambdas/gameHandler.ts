@@ -24,7 +24,6 @@ import {
   playDrawnCard,
   passAfterDraw,
   callUno,
-  handleTurnTimeout,
   getPublicGameState,
   getPrivatePlayerState,
 } from "./gameEngine.js";
@@ -192,9 +191,21 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         result = callUno(game, connectionId);
         break;
 
-      case 'TIMEOUT':
-        result = handleTurnTimeout(game);
-        break;
+      case 'TIMEOUT': {
+        const timeSinceTurnStarted = Date.now() - (game.turnStartedAt || 0);
+        if (timeSinceTurnStarted < 295_000) {
+          // Silently ignore early timeouts (due to network sync/clock drift).
+          // The frontend will resend it on its next interval tick.
+          return { statusCode: 200, body: "Ignored early timeout." };
+        }
+        const timedOutPlayer = game.players[game.currentPlayerIndex];
+        return await handleLeaveRoom(
+          timedOutPlayer.connectionId, 
+          game, 
+          apigwManagementApi, 
+          `${timedOutPlayer.name} timed out due to inactivity and was removed.`
+        );
+      }
 
       default:
         return { statusCode: 400, body: "Unknown action." };
@@ -442,6 +453,7 @@ async function handleLeaveRoom(
   connectionId: string,
   game: UnoGame,
   apigwManagementApi: ApiGatewayManagementApiClient,
+  reason?: string
 ): Promise<APIGatewayProxyResult> {
   const playerIndex = game.players.findIndex(p => p.connectionId === connectionId);
   if (playerIndex === -1) {
@@ -464,6 +476,7 @@ async function handleLeaveRoom(
   // Notify the leaving player IMMEDIATELY
   await sendToConnection(apigwManagementApi, connectionId, {
     type: 'leftRoom',
+    ...(reason && { reason: "You were kicked due to inactivity." })
   });
 
   // If room is now empty, delete the game
@@ -496,7 +509,7 @@ async function handleLeaveRoom(
       if (leavingPlayer.hand.length > 0) {
         game.drawPile.push(...leavingPlayer.hand);
       }
-      game.lastAction = `${leavingPlayer.name} left the game.`;
+      game.lastAction = reason || `${leavingPlayer.name} left the game.`;
     }
   }
 

@@ -27,7 +27,7 @@ const NUMBER_VALUES: CardValue[] = ['0', '1', '2', '3', '4', '5', '6', '7', '8',
 const ACTION_VALUES: CardValue[] = ['skip', 'reverse', 'draw2'];
 const WILD_VALUES: WildValue[] = ['wild', 'wild4'];
 const CARDS_PER_PLAYER = 7;
-const TURN_TIMEOUT_MS = 30_000; // 30 seconds
+const TURN_TIMEOUT_MS = 300_000; // 5 minutes
 const UNO_PENALTY_CARDS = 2;
 
 // =====================================================
@@ -665,48 +665,6 @@ export function callUno(
   return {
     success: true,
     event: { type: 'unoCalled', playerName: player.name },
-  };
-}
-
-// =====================================================
-// TURN TIMEOUT
-// =====================================================
-
-/**
- * Handles a turn timeout. Forces the player to draw a card and pass.
- * Called by an external timer/scheduler.
- */
-export function handleTurnTimeout(game: UnoGame): ActionResult {
-  if (game.status !== 'playing') {
-    return { success: false, error: 'Game is not in progress.' };
-  }
-
-  const player = game.players[game.currentPlayerIndex];
-
-  // Force draw one card
-  const drawnCard = drawOneCard(game);
-  if (drawnCard) {
-    player.hand.push(drawnCard);
-  }
-
-  // If there was a pending draw penalty, apply it
-  if (game.pendingDrawCount > 0) {
-    const count = game.pendingDrawCount - 1; // already drew one
-    game.pendingDrawCount = 0;
-    for (let i = 0; i < count; i++) {
-      const card = drawOneCard(game);
-      if (card) player.hand.push(card);
-    }
-  }
-  
-  if (player.hand.length > 1) player.hasCalledUno = false;
-
-  game.lastAction = `${player.name} timed out`;
-  advanceTurn(game);
-
-  return {
-    success: true,
-    event: { type: 'turnTimeout', playerName: player.name },
   };
 }
 

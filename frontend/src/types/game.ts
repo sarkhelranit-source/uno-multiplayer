@@ -27,6 +27,7 @@ export interface PublicGameState {
   pendingDrawCount: number;
   winner?: string;
   lastAction?: string;
+  turnStartedAt?: number;
   players: PlayerInfo[];
 }
 
@@ -43,5 +44,5 @@ export type WsMessage =
   | { type: 'lobbyUpdate'; roomId: string; players: PlayerInfo[]; playerCount: number; maxPlayers: number }
   | { type: 'gameStateUpdate'; publicState: PublicGameState; privateState: PrivateGameState }
   | { type: 'playerDisconnected'; playerName: string; playerIndex: number; players: PlayerInfo[] }
-  | { type: 'leftRoom' }
+  | { type: 'leftRoom'; reason?: string }
   | { type: 'error'; message: string };
