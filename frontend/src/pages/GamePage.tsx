@@ -59,6 +59,12 @@ export default function GamePage() {
 
   // Turn Timer Countdown
   useEffect(() => {
+    if (privateState?.hand.length !== 1) {
+      setLocalUnoCalled(false);
+    }
+  }, [privateState?.hand.length]);
+
+  useEffect(() => {
     if (publicState?.status !== 'playing' || !publicState.turnStartedAt) {
       return;
     }
@@ -420,7 +426,7 @@ export default function GamePage() {
       </div>
 
       {/* UNO Call Button */}
-      {privateState.hand.length === 1 && (
+      {privateState.hand.length === 1 && !publicState.players[myPlayerIndex]?.hasCalledUno && !localUnoCalled && (
         <motion.div
           className="uno-call-area"
           initial={{ scale: 0, opacity: 0 }}

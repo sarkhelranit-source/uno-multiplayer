@@ -280,9 +280,8 @@ function advanceTurn(game: UnoGame): void {
   game.currentPlayerIndex = getNextPlayerIndex(game);
   game.turnStartedAt = Date.now();
 
-  // Reset UNO call for the new current player
-  const currentPlayer = game.players[game.currentPlayerIndex];
-  currentPlayer.hasCalledUno = false;
+  // Do NOT reset UNO call here! The UNO tag must persist across turns
+  // as long as the player still has 1 card. It only resets when they draw.
   
   // Reset draw flag
   game.hasDrawnThisTurn = false;
