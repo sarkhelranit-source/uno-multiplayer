@@ -1,20 +1,41 @@
-.card-back-logo {
-  font-family: var(--font-display);
-  font-weight: 900;
-  font-size: 1.2rem;
-  letter-spacing: 0.05em;
-  color: rgba(255, 255, 255, 0.7);
-  transform: rotate(-20deg);
-  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-}
+/* ===== CLASSIC UNO CARD OVERHAUL ===== */
 
+/* The inner white oval — signature UNO card element */
 .card-oval {
   position: absolute;
-  width: 70%;
-  height: 55%;
+  width: 75%;
+  height: 60%;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.18);
+  border: 3px solid rgba(255, 255, 255, 0.25);
   transform: rotate(30deg);
   pointer-events: none;
   z-index: 1;
+  transition: background 0.3s ease;
+}
+
+.uno-card:hover .card-oval {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Card back logo styling */
+.card-back-logo {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 1.4rem;
+  letter-spacing: 0.05em;
+  color: white;
+  transform: rotate(-20deg);
+  text-shadow:
+    0 0 10px rgba(231, 76, 60, 0.8),
+    0 0 20px rgba(231, 76, 60, 0.5),
+    0 2px 6px rgba(0, 0, 0, 0.6);
+  z-index: 2;
+  position: relative;
+}
+
+/* Card back inner oval */
+.uno-card-back .card-oval {
+  background: rgba(231, 76, 60, 0.15);
+  border-color: rgba(231, 76, 60, 0.3);
 }

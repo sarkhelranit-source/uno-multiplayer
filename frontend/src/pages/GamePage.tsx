@@ -234,17 +234,16 @@ export default function GamePage() {
   // so this is always correct regardless of session/connection lifecycle.
   const myPlayerIndex = privateState.myPlayerIndex;
 
-  // Only show OTHER players in the top row
+  // Show ALL players in the top row, but identify the local player
   const opponents = publicState.players
-    .filter((_, index) => index !== myPlayerIndex)
-    .map((p) => {
-      const actualIndex = publicState.players.indexOf(p);
+    .map((p, index) => {
       return {
         name: p.name,
         cardCount: p.cardCount || 0,
         hasCalledUno: !!p.hasCalledUno,
         isDisconnected: !!p.isDisconnected,
-        isCurrentTurn: actualIndex === publicState.currentPlayerIndex,
+        isCurrentTurn: index === publicState.currentPlayerIndex,
+        isMe: index === myPlayerIndex,
       };
     });
 
@@ -372,45 +371,51 @@ export default function GamePage() {
 
       {/* Game Table Center */}
       <div className="game-table-center">
-        {/* Draw Pile */}
-        <motion.div
-          className="draw-pile"
-          onClick={amICurrentPlayer && !privateState.hasDrawn ? handleDrawCard : undefined}
-          whileHover={amICurrentPlayer && !privateState.hasDrawn ? { scale: 1.05 } : {}}
-          whileTap={amICurrentPlayer && !privateState.hasDrawn ? { scale: 0.95 } : {}}
-          style={{ opacity: privateState.hasDrawn ? 0.5 : 1 }}
-        >
-          <UnoCard color="red" value="" faceDown playable={false} />
-          <span className="pile-count">{publicState.drawPileCount}</span>
-          {amICurrentPlayer && !privateState.hasDrawn && <span className="draw-hint">Draw</span>}
-        </motion.div>
-
-        {amICurrentPlayer && privateState.hasDrawn && (
-          <button
-            className="btn btn-secondary"
-            style={{ position: 'absolute', bottom: '-60px' }}
-            onClick={() => wsService.sendAction('PASS_AFTER_DRAW')}
+        {/* Draw Pile Area */}
+        <div className="draw-pile-area">
+          <span className="draw-pile-label">Pick Up Card</span>
+          <motion.div
+            className="draw-pile"
+            onClick={amICurrentPlayer && !privateState.hasDrawn ? handleDrawCard : undefined}
+            whileHover={amICurrentPlayer && !privateState.hasDrawn ? { scale: 1.05 } : {}}
+            whileTap={amICurrentPlayer && !privateState.hasDrawn ? { scale: 0.95 } : {}}
+            style={{ opacity: privateState.hasDrawn ? 0.5 : 1 }}
           >
-            Pass Turn
-          </button>
-        )}
+            <UnoCard color="red" value="" faceDown playable={false} />
+            <span className="pile-count">{publicState.drawPileCount} Cards Left</span>
+            {amICurrentPlayer && !privateState.hasDrawn && <span className="draw-hint">Draw</span>}
+          </motion.div>
 
-        {/* Discard Pile */}
-        <div className="discard-pile">
-          <AnimatePresence mode="popLayout">
-            <motion.div
-              key={publicState.topCard.id}
-              initial={{ scale: 0.5, rotate: -20, opacity: 0 }}
-              animate={{ scale: 1, rotate: 0, opacity: 1 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+          {amICurrentPlayer && privateState.hasDrawn && (
+            <button
+              className="btn btn-ghost btn-sm"
+              style={{ marginTop: '8px' }}
+              onClick={() => wsService.sendAction('PASS_AFTER_DRAW')}
             >
-              <UnoCard
-                color={publicState.topCard.color}
-                value={publicState.topCard.value}
-                playable={false}
-              />
-            </motion.div>
-          </AnimatePresence>
+              Pass Turn
+            </button>
+          )}
+        </div>
+
+        {/* Discard Pile Area */}
+        <div className="discard-pile-area">
+          <span className="discard-pile-label">Active Card</span>
+          <div className="discard-pile">
+            <AnimatePresence mode="popLayout">
+              <motion.div
+                key={publicState.topCard.id}
+                initial={{ scale: 0.5, rotate: -20, opacity: 0 }}
+                animate={{ scale: 1, rotate: 0, opacity: 1 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+              >
+                <UnoCard
+                  color={publicState.topCard.color}
+                  value={publicState.topCard.value}
+                  playable={false}
+                />
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </div>
       </div>
 
@@ -435,6 +440,10 @@ export default function GamePage() {
 
       {/* Player's Hand */}
       <div className="my-hand-area">
+        <div className="my-hand-header">
+          <span className="my-hand-label">Your Cards</span>
+          <span className="my-hand-count">({privateState.hand.length})</span>
+        </div>
         <PlayerHand
           cards={privateState.hand}
           isMyTurn={!!amICurrentPlayer}

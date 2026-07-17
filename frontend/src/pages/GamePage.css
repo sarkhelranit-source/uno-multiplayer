@@ -48,10 +48,10 @@
 }
 
 .current-color-indicator {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.25);
   box-shadow: 0 0 12px rgba(255, 255, 255, 0.1);
   transition: background var(--transition-normal);
 }
@@ -67,32 +67,60 @@
   color: var(--text-secondary);
 }
 
-/* ===== TABLE CENTER ===== */
+/* ===== TABLE CENTER — Glass Panel ===== */
 .game-table-center {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 60px;
+  gap: 48px;
   padding: 24px;
   position: relative;
 }
 
-/* Subtle felt-like background for the table area */
-.game-table-center::before {
+
+
+/* Ambient scattered mini-cards */
+.game-table-center::after {
   content: '';
   position: absolute;
-  inset: 20px;
-  background: radial-gradient(
-    ellipse at center,
-    rgba(46, 125, 50, 0.06) 0%,
-    transparent 70%
-  );
-  border-radius: var(--radius-xl);
+  inset: 0;
+  background-image:
+    radial-gradient(circle 2px at 15% 25%, var(--uno-red) 0%, transparent 100%),
+    radial-gradient(circle 2px at 85% 30%, var(--uno-blue) 0%, transparent 100%),
+    radial-gradient(circle 2px at 10% 75%, var(--uno-green) 0%, transparent 100%),
+    radial-gradient(circle 2px at 90% 70%, var(--uno-yellow) 0%, transparent 100%),
+    radial-gradient(circle 1.5px at 25% 15%, var(--uno-yellow) 0%, transparent 100%),
+    radial-gradient(circle 1.5px at 75% 85%, var(--uno-red) 0%, transparent 100%),
+    radial-gradient(circle 1px at 50% 10%, var(--uno-blue) 0%, transparent 100%),
+    radial-gradient(circle 1px at 50% 90%, var(--uno-green) 0%, transparent 100%);
+  opacity: 0.4;
   pointer-events: none;
+  animation: twinkle 6s ease-in-out infinite alternate;
 }
 
-/* Draw Pile */
+@keyframes twinkle {
+  0% { opacity: 0.25; }
+  100% { opacity: 0.5; }
+}
+
+/* ===== Draw Pile ===== */
+.draw-pile-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.draw-pile-label {
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 .draw-pile {
   position: relative;
   cursor: pointer;
@@ -105,24 +133,43 @@
 .pile-count {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--text-secondary);
 }
 
 .draw-hint {
   position: absolute;
-  bottom: -28px;
+  bottom: -32px;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--accent-primary);
   animation: pulse-glow 2s infinite;
   background: var(--bg-glass);
-  padding: 2px 10px;
+  padding: 4px 14px;
   border-radius: var(--radius-full);
   border: 1px solid var(--border-glass);
+  font-family: var(--font-display);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
-/* Discard Pile */
+/* ===== Discard Pile ===== */
+.discard-pile-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.discard-pile-label {
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 .discard-pile {
   position: relative;
 }
@@ -149,20 +196,52 @@
   border-top: 1px solid var(--border-subtle);
   background: linear-gradient(
     to top,
-    rgba(10, 14, 26, 0.9),
+    rgba(10, 14, 26, 0.95),
+    rgba(10, 14, 26, 0.6),
     transparent
   );
+}
+
+.my-hand-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 24px 0;
+  gap: 8px;
+}
+
+.my-hand-label {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.my-hand-count {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: var(--accent-primary);
 }
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
   .game-table-center {
-    gap: 32px;
+    gap: 28px;
     padding: 16px;
   }
 
+
+
   .game-topbar {
     padding: 10px 16px;
+  }
+
+  .draw-pile-label,
+  .discard-pile-label {
+    font-size: 0.65rem;
   }
 }
 

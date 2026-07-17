@@ -431,10 +431,9 @@ export function playCard(
     game.currentColor = card.color;
   }
 
-  // Apply card effects
-  const effectEvents = applyCardEffect(game, card);
-
-  // Check win condition
+  // Check win condition BEFORE applying card effects
+  // (effects like skip/reverse change currentPlayerIndex,
+  //  which would cause checkWinCondition to check the wrong player)
   const winEvent = checkWinCondition(game);
   if (winEvent) {
     return {
@@ -442,6 +441,9 @@ export function playCard(
       event: winEvent,
     };
   }
+
+  // Apply card effects
+  const effectEvents = applyCardEffect(game, card);
 
   // Advance turn (if not already advanced by skip/draw effects)
   if (!effectEvents.some(e => e.type === 'turnSkipped' || e.type === 'drawPenalty')) {

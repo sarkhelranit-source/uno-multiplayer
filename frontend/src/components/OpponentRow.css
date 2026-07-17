@@ -1,7 +1,7 @@
 .opponent-row {
   display: flex;
   justify-content: center;
-  gap: 20px;
+  gap: 16px;
   padding: 16px 24px;
   flex-wrap: wrap;
 }
@@ -17,7 +17,8 @@
   border: 1px solid var(--border-subtle);
   transition:
     border-color var(--transition-normal),
-    box-shadow var(--transition-normal);
+    box-shadow var(--transition-normal),
+    background var(--transition-normal);
   min-width: 90px;
   position: relative;
 }
@@ -25,6 +26,12 @@
 .opponent-seat.active-turn {
   border-color: var(--accent-primary);
   box-shadow: 0 0 20px var(--accent-primary-glow);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.opponent-seat.is-me {
+  background: rgba(99, 102, 241, 0.08);
+  border-color: rgba(99, 102, 241, 0.25);
 }
 
 .opponent-seat.disconnected {
@@ -32,25 +39,27 @@
 }
 
 .opponent-avatar {
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent-primary), #818cf8);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   color: white;
   position: relative;
+  border: 3px solid currentColor;
+  transition: box-shadow var(--transition-normal);
 }
 
 .turn-ring {
   position: absolute;
-  inset: -4px;
+  inset: -6px;
   border-radius: 50%;
-  border: 2px solid var(--accent-primary);
+  border: 2px solid currentColor;
   pointer-events: none;
 }
 
@@ -92,10 +101,43 @@
   padding: 2px 6px;
   border-radius: var(--radius-full);
   letter-spacing: 0.05em;
+  box-shadow: 0 2px 8px var(--uno-red-glow);
 }
 
 .disconnect-badge {
   font-size: 0.65rem;
   color: var(--accent-warning);
   font-weight: 600;
+}
+
+/* "You" badge */
+.you-badge {
+  font-size: 0.6rem;
+  font-family: var(--font-display);
+  background: linear-gradient(135deg, var(--uno-green), var(--uno-green-dark));
+  color: white;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  box-shadow: 0 2px 8px var(--uno-green-glow);
+}
+
+/* "Active" badge */
+.active-badge {
+  font-size: 0.6rem;
+  font-family: var(--font-display);
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);
+  animation: pulse-badge 2s infinite;
+}
+
+@keyframes pulse-badge {
+  0%, 100% { box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4); }
+  50% { box-shadow: 0 2px 16px rgba(245, 158, 11, 0.7); }
 }

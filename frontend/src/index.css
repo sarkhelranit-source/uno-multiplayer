@@ -1,16 +1,20 @@
 /* ===== DESIGN TOKENS ===== */
 :root {
-  /* UNO Color Palette */
-  --uno-red: #e74c3c;
-  --uno-red-glow: rgba(231, 76, 60, 0.4);
-  --uno-blue: #3498db;
-  --uno-blue-glow: rgba(52, 152, 219, 0.4);
-  --uno-green: #2ecc71;
-  --uno-green-glow: rgba(46, 204, 113, 0.4);
-  --uno-yellow: #f1c40f;
-  --uno-yellow-glow: rgba(241, 196, 15, 0.4);
-  --uno-wild: #9b59b6;
-  --uno-wild-glow: rgba(155, 89, 182, 0.4);
+  /* UNO Color Palette - Classic Bold */
+  --uno-red: #d72600;
+  --uno-red-dark: #b01e00;
+  --uno-red-glow: rgba(215, 38, 0, 0.5);
+  --uno-blue: #0956bf;
+  --uno-blue-dark: #073e8f;
+  --uno-blue-glow: rgba(9, 86, 191, 0.5);
+  --uno-green: #379711;
+  --uno-green-dark: #2a750d;
+  --uno-green-glow: rgba(55, 151, 17, 0.5);
+  --uno-yellow: #ecd407;
+  --uno-yellow-dark: #c4b006;
+  --uno-yellow-glow: rgba(236, 212, 7, 0.5);
+  --uno-wild: #1a1a2e;
+  --uno-wild-glow: rgba(155, 89, 182, 0.5);
 
   /* Surface & Background */
   --bg-primary: #0a0e1a;
@@ -38,9 +42,9 @@
   --accent-danger: #ef4444;
 
   /* Sizing */
-  --card-width: 80px;
-  --card-height: 120px;
-  --card-radius: 10px;
+  --card-width: 90px;
+  --card-height: 135px;
+  --card-radius: 12px;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
@@ -266,7 +270,7 @@ input {
   text-transform: uppercase;
 }
 
-/* ===== CARD (UNO) ===== */
+/* ===== CARD (UNO) — Classic Style ===== */
 .uno-card {
   width: var(--card-width);
   height: var(--card-height);
@@ -275,8 +279,8 @@ input {
   align-items: center;
   justify-content: center;
   font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 1.8rem;
+  font-weight: 900;
+  font-size: 2.2rem;
   color: white;
   position: relative;
   cursor: pointer;
@@ -285,18 +289,23 @@ input {
     box-shadow var(--transition-normal);
   user-select: none;
   overflow: hidden;
-  border: 3px solid rgba(255, 255, 255, 0.25);
+  border: 4px solid white;
+  box-shadow:
+    0 4px 15px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
+/* Subtle inner border to mimic real card printing */
 .uno-card::before {
   content: '';
   position: absolute;
-  inset: 4px;
-  border-radius: calc(var(--card-radius) - 4px);
-  background: rgba(255, 255, 255, 0.08);
+  inset: 3px;
+  border-radius: calc(var(--card-radius) - 5px);
   border: 2px solid rgba(255, 255, 255, 0.12);
+  pointer-events: none;
 }
 
+/* Glossy shine on hover */
 .uno-card::after {
   content: '';
   position: absolute;
@@ -307,14 +316,15 @@ input {
   background: linear-gradient(
     45deg,
     transparent 40%,
-    rgba(255, 255, 255, 0.06) 45%,
-    rgba(255, 255, 255, 0.1) 50%,
-    rgba(255, 255, 255, 0.06) 55%,
+    rgba(255, 255, 255, 0.08) 45%,
+    rgba(255, 255, 255, 0.15) 50%,
+    rgba(255, 255, 255, 0.08) 55%,
     transparent 60%
   );
   transform: translateX(-100%);
   transition: transform 0.6s var(--ease-out-expo);
   pointer-events: none;
+  z-index: 3;
 }
 
 .uno-card:hover::after {
@@ -322,76 +332,131 @@ input {
 }
 
 .uno-card:hover {
-  transform: translateY(-12px) scale(1.05);
+  transform: translateY(-14px) scale(1.06);
   z-index: 10;
 }
 
+/* Color Variants — Classic bold UNO colors */
 .uno-card.red {
-  background: linear-gradient(145deg, #e74c3c, #c0392b);
-  box-shadow: 0 4px 15px var(--uno-red-glow);
+  background: linear-gradient(160deg, var(--uno-red) 0%, var(--uno-red-dark) 100%);
+  box-shadow:
+    0 4px 18px var(--uno-red-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  border-color: white;
 }
-.uno-card.red:hover { box-shadow: 0 8px 30px var(--uno-red-glow); }
+.uno-card.red:hover {
+  box-shadow: 0 10px 35px var(--uno-red-glow);
+}
 
 .uno-card.blue {
-  background: linear-gradient(145deg, #3498db, #2980b9);
-  box-shadow: 0 4px 15px var(--uno-blue-glow);
+  background: linear-gradient(160deg, var(--uno-blue) 0%, var(--uno-blue-dark) 100%);
+  box-shadow:
+    0 4px 18px var(--uno-blue-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  border-color: white;
 }
-.uno-card.blue:hover { box-shadow: 0 8px 30px var(--uno-blue-glow); }
+.uno-card.blue:hover {
+  box-shadow: 0 10px 35px var(--uno-blue-glow);
+}
 
 .uno-card.green {
-  background: linear-gradient(145deg, #2ecc71, #27ae60);
-  box-shadow: 0 4px 15px var(--uno-green-glow);
+  background: linear-gradient(160deg, var(--uno-green) 0%, var(--uno-green-dark) 100%);
+  box-shadow:
+    0 4px 18px var(--uno-green-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  border-color: white;
 }
-.uno-card.green:hover { box-shadow: 0 8px 30px var(--uno-green-glow); }
+.uno-card.green:hover {
+  box-shadow: 0 10px 35px var(--uno-green-glow);
+}
 
 .uno-card.yellow {
-  background: linear-gradient(145deg, #f1c40f, #d4ac0d);
-  box-shadow: 0 4px 15px var(--uno-yellow-glow);
+  background: linear-gradient(160deg, var(--uno-yellow) 0%, var(--uno-yellow-dark) 100%);
+  box-shadow:
+    0 4px 18px var(--uno-yellow-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  border-color: white;
+  color: #1a1a2e;
 }
-.uno-card.yellow:hover { box-shadow: 0 8px 30px var(--uno-yellow-glow); }
+.uno-card.yellow:hover {
+  box-shadow: 0 10px 35px var(--uno-yellow-glow);
+}
+.uno-card.yellow .card-symbol,
+.uno-card.yellow .card-symbol-bottom {
+  color: #1a1a2e;
+  text-shadow: none;
+  border-color: rgba(0, 0, 0, 0.2);
+}
 
 .uno-card.wild {
-  background: conic-gradient(from 45deg, #e74c3c, #3498db, #2ecc71, #f1c40f, #e74c3c);
-  box-shadow: 0 4px 15px var(--uno-wild-glow);
+  background: var(--uno-wild);
+  border-color: white;
+  box-shadow:
+    0 4px 18px var(--uno-wild-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
-.uno-card.wild:hover { box-shadow: 0 8px 30px var(--uno-wild-glow); }
+.uno-card.wild .card-oval {
+  background: conic-gradient(
+    from 0deg,
+    var(--uno-red) 0deg 90deg,
+    var(--uno-yellow) 90deg 180deg,
+    var(--uno-green) 180deg 270deg,
+    var(--uno-blue) 270deg 360deg
+  );
+  border: 3px solid rgba(255, 255, 255, 0.35);
+  opacity: 0.85;
+}
+.uno-card.wild:hover {
+  box-shadow: 0 10px 35px var(--uno-wild-glow);
+}
 
+/* Card Back */
 .uno-card-back {
-  background: linear-gradient(145deg, #1a1a2e, #16213e);
-  border-color: rgba(99, 102, 241, 0.3);
+  background: linear-gradient(145deg, #1a1a2e, #0e1526);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
-/* Symbol overlay inside the card */
+/* Center value — big, bold, classic look */
 .uno-card .card-value {
   position: relative;
   z-index: 2;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  font-size: 2.2rem;
+  font-weight: 900;
+  text-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.4),
+    0 0 0 rgba(0, 0, 0, 0.1);
+  line-height: 1;
 }
 
+/* Corner labels — classic UNO corner numbers */
 .uno-card .card-symbol {
-  font-size: 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 800;
   position: absolute;
   top: 6px;
-  left: 8px;
+  left: 7px;
   z-index: 2;
-  opacity: 0.9;
+  opacity: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .uno-card .card-symbol-bottom {
-  font-size: 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 800;
   position: absolute;
   bottom: 6px;
-  right: 8px;
+  right: 7px;
   z-index: 2;
-  opacity: 0.9;
+  opacity: 1;
   transform: rotate(180deg);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 /* Card disabled (not playable) */
 .uno-card.disabled {
   opacity: 0.45;
   cursor: not-allowed;
-  filter: grayscale(0.3);
+  filter: grayscale(0.35) brightness(0.8);
 }
 
 .uno-card.disabled:hover {
@@ -468,12 +533,22 @@ input {
 /* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
   :root {
-    --card-width: 60px;
-    --card-height: 90px;
+    --card-width: 65px;
+    --card-height: 98px;
   }
 
   .uno-card {
-    font-size: 1.3rem;
+    font-size: 1.5rem;
+    border-width: 3px;
+  }
+
+  .uno-card .card-value {
+    font-size: 1.6rem;
+  }
+
+  .uno-card .card-symbol,
+  .uno-card .card-symbol-bottom {
+    font-size: 0.6rem;
   }
 
   .btn-lg {
