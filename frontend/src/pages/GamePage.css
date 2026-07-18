@@ -1,5 +1,6 @@
 .game-page {
-  min-height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
   display: flex;
   flex-direction: column;
   position: relative;
@@ -59,12 +60,17 @@
 .topbar-right {
   display: flex;
   align-items: center;
+  min-width: 0;
 }
 
 .turn-label {
   font-weight: 600;
   font-size: 0.9rem;
   color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 250px;
 }
 
 /* ===== TABLE CENTER — Glass Panel ===== */
@@ -242,6 +248,10 @@
   .draw-pile-label,
   .discard-pile-label {
     font-size: 0.65rem;
+  }
+
+  .turn-label {
+    max-width: 110px;
   }
 }
 
