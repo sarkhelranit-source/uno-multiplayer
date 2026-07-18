@@ -35,8 +35,8 @@ export default function OpponentRow({ opponents }: OpponentRowProps) {
           <motion.div
             key={opp.name}
             className={`opponent-seat ${opp.isCurrentTurn ? 'active-turn' : ''} ${opp.isDisconnected ? 'disconnected' : ''} ${opp.isMe ? 'is-me' : ''}`}
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: -20, x: 0, rotate: 0 }}
+            animate={{ opacity: 1, y: 0, x: 0, rotate: 0 }}
             transition={{ delay: i * 0.1 }}
           >
             <div
@@ -56,8 +56,7 @@ export default function OpponentRow({ opponents }: OpponentRowProps) {
                 />
               )}
             </div>
-            <span className="opponent-name">{opp.name}</span>
-            {opp.isMe && <span className="you-badge">You</span>}
+            <span className="opponent-name">{opp.isMe ? 'You' : opp.name}</span>
             {opp.isCurrentTurn && !opp.isMe && <span className="active-badge">Active</span>}
             <div className="opponent-card-count">
               <span className="card-count-icon">🃏</span>

@@ -1,4 +1,4 @@
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import UnoCard from './UnoCard';
 import './PlayerHand.css';
 
@@ -29,7 +29,12 @@ export default function PlayerHand({
   return (
     <div className="player-hand-wrapper">
       <AnimatePresence mode="popLayout">
-        <div className="player-hand">
+        <motion.div 
+          className="player-hand"
+          initial={{ opacity: 1, y: 0, rotate: 0 }}
+          animate={{ y: 0, rotate: 0, opacity: 1 }}
+          transition={{ duration: 0.3 }}
+        >
           {cards.map((card, index) => {
             const angle = totalCards > 1
               ? -maxFanAngle / 2 + (index / (totalCards - 1)) * maxFanAngle
@@ -58,7 +63,7 @@ export default function PlayerHand({
               />
             );
           })}
-        </div>
+        </motion.div>
       </AnimatePresence>
     </div>
   );

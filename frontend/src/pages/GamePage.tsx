@@ -26,7 +26,7 @@ export default function GamePage() {
   const [timeLeftMs, setTimeLeftMs] = useState<number>(300_000);
   const [kickoutReason, setKickoutReason] = useState<string | null>(null);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
-  
+
   // UNO Animation states
   const [showUnoCelebration, setShowUnoCelebration] = useState(false);
   const [unoWarningMessage, setUnoWarningMessage] = useState<string | null>(null);
@@ -35,10 +35,30 @@ export default function GamePage() {
   const [splashColor, setSplashColor] = useState<string | null>(null);
   const previousTopCardIdRef = useRef<string | null>(null);
 
+  // Victory state
+  const [victoryPhase, setVictoryPhase] = useState<'none' | 'pulse' | 'confetti' | 'celebration'>('none');
+
+  // Orchestrate victory animation
+  useEffect(() => {
+    if (publicState?.status === 'finished') {
+      const t1 = setTimeout(() => setVictoryPhase('pulse'), 500);
+      const t2 = setTimeout(() => setVictoryPhase('confetti'), 900);
+      const t3 = setTimeout(() => setVictoryPhase('celebration'), 1800);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+        clearTimeout(t3);
+      };
+    } else {
+      setVictoryPhase('none');
+    }
+  }, [publicState?.status]);
+
+
   useEffect(() => {
     if (publicState?.lastAction) {
       const actionStr = publicState.lastAction;
-      
+
       // Check if it's an UNO call action
       if (actionStr.includes('called UNO!')) {
         setToastMessage(null);
@@ -52,8 +72,12 @@ export default function GamePage() {
           setTimeout(() => setUnoWarningMessage(null), 3000);
         }
       } else {
-        // Standard action toast
-        setToastMessage(actionStr);
+        // Standard action toast — show "You" instead of the local player's name
+        const myPlayerName = publicState.players[privateState?.myPlayerIndex || 0]?.name;
+        const displayAction = myPlayerName && actionStr.startsWith(myPlayerName)
+          ? actionStr.replace(myPlayerName, 'You')
+          : actionStr;
+        setToastMessage(displayAction);
         const timer = setTimeout(() => {
           setToastMessage(null);
         }, 3500);
@@ -124,7 +148,7 @@ export default function GamePage() {
       // No saved room, go home
       navigate('/');
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run only on mount
 
   // Handle automatic reconnection when the app comes back to the foreground
@@ -324,17 +348,17 @@ export default function GamePage() {
         </div>
         <div className="topbar-right">
           <span className="turn-label">
-            {amICurrentPlayer 
-              ? '🔥 Your Turn' 
+            {amICurrentPlayer
+              ? '🔥 Your Turn'
               : `⏳ Waiting for ${publicState.players[publicState.currentPlayerIndex]?.name || 'Player'}`}
           </span>
           {publicState.status === 'playing' && publicState.turnStartedAt && (
-            <span 
-              className="turn-timer" 
-              style={{ 
-                marginLeft: '1rem', 
-                fontWeight: 'bold', 
-                color: timeLeftMs < 60000 ? 'var(--uno-red)' : 'inherit' 
+            <span
+              className="turn-timer"
+              style={{
+                marginLeft: '1rem',
+                fontWeight: 'bold',
+                color: timeLeftMs < 60000 ? 'var(--uno-red)' : 'inherit'
               }}
             >
               ⏱️ {formatTime(timeLeftMs)}
@@ -353,7 +377,7 @@ export default function GamePage() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <motion.div 
+            <motion.div
               className="color-splash-bg"
               style={{ background: `radial-gradient(circle, ${COLOR_INDICATOR_MAP[splashColor] || 'white'} 0%, transparent 70%)` }}
               initial={{ scale: 0 }}
@@ -432,7 +456,11 @@ export default function GamePage() {
       <OpponentRow opponents={opponents} />
 
       {/* Game Table Center */}
-      <div className="game-table-center">
+      <motion.div
+        className="game-table-center"
+        animate={victoryPhase === 'pulse' ? { x: [0, -15, 15, -15, 15, -10, 10, -5, 5, 0], y: [0, 10, -10, 10, -10, 5, -5, 0] } : { x: 0, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
         {/* Draw Pile Area */}
         <div className="draw-pile-area">
           <span className="draw-pile-label">Pick Up Card</span>
@@ -479,7 +507,7 @@ export default function GamePage() {
             </AnimatePresence>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* UNO Call Button */}
       {privateState.hand.length === 1 && !publicState.players[myPlayerIndex]?.hasCalledUno && !localUnoCalled && (
@@ -520,23 +548,95 @@ export default function GamePage() {
         onSelect={handleColorSelected}
       />
 
+      {/* Shockwave Pulse & Confetti */}
+      <AnimatePresence>
+        {victoryPhase === 'pulse' && (
+          <motion.div
+            className="shockwave-pulse"
+            initial={{ scale: 0, opacity: 1 }}
+            animate={{ scale: 4, opacity: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.8, ease: 'easeOut' }}
+            style={{
+              position: 'fixed',
+              top: '50%',
+              left: '50%',
+              width: '100vw',
+              height: '100vw',
+              marginLeft: '-50vw',
+              marginTop: '-50vw',
+              borderRadius: '50%',
+              border: '40px solid rgba(255, 255, 255, 0.9)',
+              pointerEvents: 'none',
+              zIndex: 1500,
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Confetti container rendering logic */}
+      {(victoryPhase === 'confetti' || victoryPhase === 'celebration') && (
+        <div className="confetti-container">
+          {Array.from({ length: 50 }).map((_, i) => {
+            const colors = ['var(--uno-red)', 'var(--uno-blue)', 'var(--uno-green)', 'var(--uno-yellow)'];
+            const color = colors[i % colors.length];
+            return (
+              <div
+                key={i}
+                className="confetti-piece"
+                style={{
+                  '--confetti-color': color,
+                  left: `${Math.random() * 100}%`,
+                  animationDelay: `${Math.random() * 2}s`,
+                  animationDuration: `${2 + Math.random() * 2}s`
+                } as React.CSSProperties}
+              ></div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Winner Overlay */}
-      {publicState.status === 'finished' && (
-        <div className="winner-overlay" style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 2000,
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
-        }}>
-          <h1 style={{ fontSize: '4rem', color: 'var(--uno-yellow)' }}>Game Over!</h1>
-          <h2 style={{ color: 'white', marginTop: '1rem' }}>{publicState.winner} won the game!</h2>
-          <button className="btn btn-primary btn-lg" style={{ marginTop: '2rem' }} onClick={() => {
+      <AnimatePresence>
+        {victoryPhase === 'celebration' && (
+          <motion.div
+            className="winner-overlay"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.8, type: 'spring' }}
+            style={{
+              position: 'fixed', inset: 0, background: 'rgba(10, 14, 26, 0.95)', zIndex: 2000,
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
+            }}
+          >
+            <div className="fireworks-container">
+              <div className="firework"></div>
+              <div className="firework"></div>
+              <div className="firework"></div>
+            </div>
+
+            <motion.h1
+              style={{ fontSize: 'clamp(4rem, 10vw, 8rem)', color: 'var(--uno-yellow)', fontFamily: 'var(--font-display)', textShadow: '0 0 20px rgba(255, 214, 0, 0.5)', margin: 0 }}
+              animate={{ scale: [1, 1.05, 1] }}
+              transition={{ repeat: Infinity, duration: 2 }}
+            >
+              {publicState?.winner === publicState?.players[privateState?.myPlayerIndex || 0]?.name ? 'VICTORY!' : 'GAME OVER'}
+            </motion.h1>
+            <h2 style={{ color: 'white', marginTop: '1rem', fontSize: '2rem', fontFamily: 'var(--font-display)' }}>
+              <span style={{ color: 'var(--accent-primary)' }}>
+                {publicState?.winner === publicState?.players[privateState?.myPlayerIndex || 0]?.name ? 'You' : publicState?.winner}
+              </span> won the game!
+            </h2>
+            <button className="btn btn-primary btn-lg" style={{ marginTop: '3rem', fontSize: '1.2rem' }} onClick={() => {
               sessionStorage.removeItem('uno_room_id');
               wsService.disconnect();
               navigate('/');
             }}>
-            Back to Home
-          </button>
-        </div>
-      )}
+              Back to Home
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Kickout Overlay */}
       {kickoutReason && (
@@ -547,9 +647,9 @@ export default function GamePage() {
           <h1 style={{ fontSize: '4rem', color: 'var(--uno-red)' }}>Disconnected</h1>
           <h2 style={{ color: 'white', marginTop: '1rem' }}>{kickoutReason}</h2>
           <button className="btn btn-primary btn-lg" style={{ marginTop: '2rem' }} onClick={() => {
-              setKickoutReason(null);
-              navigate('/');
-            }}>
+            setKickoutReason(null);
+            navigate('/');
+          }}>
             Back to Home
           </button>
         </div>
@@ -563,8 +663,8 @@ export default function GamePage() {
         }}>
           <h2 style={{ color: 'white', marginBottom: '2rem' }}>Are you sure you want to leave the game?</h2>
           <div style={{ display: 'flex', gap: '1rem' }}>
-            <button 
-              className="btn btn-lg" 
+            <button
+              className="btn btn-lg"
               style={{ color: 'white', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.3)' }}
               onClick={() => setShowLeaveConfirm(false)}
             >
