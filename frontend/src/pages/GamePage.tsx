@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import PlayerHand from '../components/PlayerHand';
@@ -31,6 +31,10 @@ export default function GamePage() {
   const [showUnoCelebration, setShowUnoCelebration] = useState(false);
   const [unoWarningMessage, setUnoWarningMessage] = useState<string | null>(null);
 
+  // Color splash states
+  const [splashColor, setSplashColor] = useState<string | null>(null);
+  const previousTopCardIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (publicState?.lastAction) {
       const actionStr = publicState.lastAction;
@@ -56,6 +60,23 @@ export default function GamePage() {
       }
     }
   }, [publicState?.lastAction, publicState?.players, privateState?.myPlayerIndex]);
+
+  useEffect(() => {
+    if (publicState?.topCard && publicState?.currentColor) {
+      if (
+        previousTopCardIdRef.current &&
+        previousTopCardIdRef.current !== publicState.topCard.id &&
+        publicState.topCard.color === 'wild'
+      ) {
+        setSplashColor(publicState.currentColor);
+        const timer = setTimeout(() => {
+          setSplashColor(null);
+        }, 2000);
+        return () => clearTimeout(timer);
+      }
+      previousTopCardIdRef.current = publicState.topCard.id;
+    }
+  }, [publicState?.topCard, publicState?.currentColor]);
 
   // Turn Timer Countdown
   useEffect(() => {
@@ -275,7 +296,9 @@ export default function GamePage() {
           >
             🚪 Leave
           </button>
-          <span className="topbar-logo">UNO</span>
+          <div className="uno-authentic-logo">
+            <span>UNO</span>
+          </div>
         </div>
         <div className="topbar-center">
           <div
@@ -317,6 +340,35 @@ export default function GamePage() {
       </div>
 
       {/* UNO Celebration / Warning Overlays */}
+      <AnimatePresence>
+        {splashColor && (
+          <motion.div
+            className="color-splash-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <motion.div 
+              className="color-splash-bg"
+              style={{ background: `radial-gradient(circle, ${COLOR_INDICATOR_MAP[splashColor] || 'white'}80 0%, transparent 60%)` }}
+              initial={{ scale: 0 }}
+              animate={{ scale: 1.5 }}
+              transition={{ duration: 0.8, ease: 'easeOut' }}
+            />
+            <motion.h2
+              className="color-splash-text"
+              initial={{ scale: 0.8, y: 30 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 1.1, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+            >
+              {splashColor}!
+            </motion.h2>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {showUnoCelebration && (
           <motion.div
