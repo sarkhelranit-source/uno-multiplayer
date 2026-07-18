@@ -323,8 +323,8 @@
 
 .color-splash-bg {
   position: absolute;
-  width: 100vw;
-  height: 100vw;
+  width: 200vmax;
+  height: 200vmax;
   border-radius: 50%;
 }
 

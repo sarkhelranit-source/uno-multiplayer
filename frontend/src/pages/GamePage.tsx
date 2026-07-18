@@ -41,6 +41,7 @@ export default function GamePage() {
       
       // Check if it's an UNO call action
       if (actionStr.includes('called UNO!')) {
+        setToastMessage(null);
         // Is it the local player?
         const myPlayerName = publicState.players[privateState?.myPlayerIndex || 0]?.name;
         if (actionStr.startsWith(myPlayerName)) {
@@ -62,6 +63,7 @@ export default function GamePage() {
   }, [publicState?.lastAction, publicState?.players, privateState?.myPlayerIndex]);
 
   useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
     if (publicState?.topCard && publicState?.currentColor) {
       if (
         previousTopCardIdRef.current &&
@@ -69,13 +71,15 @@ export default function GamePage() {
         publicState.topCard.color === 'wild'
       ) {
         setSplashColor(publicState.currentColor);
-        const timer = setTimeout(() => {
+        timer = setTimeout(() => {
           setSplashColor(null);
         }, 2000);
-        return () => clearTimeout(timer);
       }
       previousTopCardIdRef.current = publicState.topCard.id;
     }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
   }, [publicState?.topCard, publicState?.currentColor]);
 
   // Turn Timer Countdown
@@ -351,7 +355,7 @@ export default function GamePage() {
           >
             <motion.div 
               className="color-splash-bg"
-              style={{ background: `radial-gradient(circle, ${COLOR_INDICATOR_MAP[splashColor] || 'white'}80 0%, transparent 60%)` }}
+              style={{ background: `radial-gradient(circle, ${COLOR_INDICATOR_MAP[splashColor] || 'white'} 0%, transparent 70%)` }}
               initial={{ scale: 0 }}
               animate={{ scale: 1.5 }}
               transition={{ duration: 0.8, ease: 'easeOut' }}

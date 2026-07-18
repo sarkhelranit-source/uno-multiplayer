@@ -8,3 +8,4 @@ backend/node_modules/
 *.log
 *.txt
 aws_websocket_troubleshooting.md
+walkthrough.md
