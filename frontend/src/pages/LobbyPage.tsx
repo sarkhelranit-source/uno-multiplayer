@@ -24,6 +24,8 @@ export default function LobbyPage() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(!!sessionStorage.getItem('uno_room_id') && !wsService.isConnected());
 
+  // The WebSocketService now automatically reconnects. We just need to trigger it
+  // on mount if there's a saved room, and it's not already connected.
   useEffect(() => {
     const savedRoomId = sessionStorage.getItem('uno_room_id');
     if (savedRoomId && !wsService.isConnected()) {
@@ -34,6 +36,9 @@ export default function LobbyPage() {
         setIsReconnecting(false);
         sessionStorage.removeItem('uno_room_id');
       });
+    } else if (savedRoomId && wsService.isConnected()) {
+      // If already connected, make sure we show the right state
+      setIsReconnecting(false);
     }
   }, []);
 
@@ -78,6 +83,13 @@ export default function LobbyPage() {
           setIsConnecting(false);
           setIsReconnecting(false);
           sessionStorage.removeItem('uno_room_id');
+          break;
+        case 'reconnecting':
+          setIsReconnecting(true);
+          break;
+        case 'reconnected':
+          setIsReconnecting(false);
+          setIsConnecting(false);
           break;
       }
     });

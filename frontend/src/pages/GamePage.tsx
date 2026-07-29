@@ -151,29 +151,7 @@ export default function GamePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run only on mount
 
-  // Handle automatic reconnection when the app comes back to the foreground
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        const savedRoomId = sessionStorage.getItem('uno_room_id');
-        if (savedRoomId && !wsService.isConnected()) {
-          setIsReconnecting(true);
-          wsService.connect(savedRoomId).catch(() => {
-            sessionStorage.removeItem('uno_room_id');
-            navigate('/');
-          });
-        }
-      }
-    };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleVisibilityChange);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleVisibilityChange);
-    };
-  }, [navigate]);
 
   useEffect(() => {
     const unsubscribe = wsService.subscribe((msg: WsMessage) => {
@@ -214,6 +192,12 @@ export default function GamePage() {
             setToastMessage(msg.message);
             setTimeout(() => setToastMessage(null), 3000);
           }
+          break;
+        case 'reconnecting':
+          setIsReconnecting(true);
+          break;
+        case 'reconnected':
+          setIsReconnecting(false);
           break;
       }
     });
