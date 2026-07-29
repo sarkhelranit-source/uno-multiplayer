@@ -10,14 +10,10 @@ class WebSocketService {
   private isConnecting: boolean = false;
   
   // Reconnection state
-  private lastRoomId?: string;
   private reconnectAttempts = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private pingInterval: ReturnType<typeof setInterval> | null = null;
   private intentionallyDisconnected = false;
-  
-  // Heartbeat tracking
-  private pongTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     this.url = import.meta.env.VITE_WEBSOCKET_URL || '';
@@ -32,56 +28,68 @@ class WebSocketService {
     }
     this.sessionId = sid;
 
-    // Listen to tab visibility to handle mobile app switching
+    // Listen to tab visibility to handle mobile app switching.
+    // This is the KEY fix: when a mobile user switches to WhatsApp and back,
+    // the browser fires visibilitychange. We use this to detect stale connections.
     if (typeof document !== 'undefined') {
-      document.addEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
-      window.addEventListener('focus', this.handleVisibilityChange.bind(this));
+      document.addEventListener('visibilitychange', this.handleVisibilityChange);
+      window.addEventListener('focus', this.handleFocus);
     }
   }
 
-  private handleVisibilityChange() {
+  /**
+   * Gets the current room ID from sessionStorage — the single source of truth.
+   * Both LobbyPage and GamePage save roomId to sessionStorage when they learn it
+   * (e.g. after roomCreated, lobbyUpdate messages). This means even if the host
+   * called connect() without a roomId (during CREATE_ROOM), we'll still know
+   * the room once the server responds and the page saves it.
+   */
+  private getRoomId(): string | null {
+    return sessionStorage.getItem('uno_room_id');
+  }
+
+  private handleVisibilityChange = () => {
     if (document.visibilityState === 'visible') {
-      this.checkConnection();
+      this.checkConnectionOnResume();
     }
-  }
+  };
 
-  private checkConnection() {
-    // If not connected and not intentionally disconnected, try to reconnect
-    if (!this.isConnected() && !this.intentionallyDisconnected && this.lastRoomId) {
-      this.triggerReconnect();
-      return;
-    }
-    
-    // If we think we're connected, let's verify with a ping (mobile OS sometimes freezes sockets)
-    if (this.isConnected()) {
-      this.verifyAlive();
-    }
-  }
+  private handleFocus = () => {
+    // Some mobile browsers fire focus but not visibilitychange
+    this.checkConnectionOnResume();
+  };
 
-  private verifyAlive() {
-    if (!this.ws) return;
-    
-    // Wait for pong or timeout
-    if (this.pongTimeout) clearTimeout(this.pongTimeout);
-    this.pongTimeout = setTimeout(() => {
-      console.warn('Heartbeat timeout - force reconnecting');
-      if (this.ws) {
-        this.ws.close(); // This will trigger onclose which triggers auto-reconnect
-      }
-    }, 3000);
-    
-    // We send a generic string that the backend can optionally respond to.
-    // If the socket is completely frozen, the send might fail or we won't get any messages.
-    // However, API Gateway doesn't have a native PING/PONG frame we can intercept in browser WS.
-    // To implement a true heartbeat, we should send an action.
-    this.sendAction('PING');
+  /**
+   * Called when the tab becomes visible again (user switched back from WhatsApp etc).
+   * Checks if the WebSocket is still alive and reconnects if needed.
+   */
+  private checkConnectionOnResume() {
+    const roomId = this.getRoomId();
+    if (!roomId || this.intentionallyDisconnected) return;
+
+    if (!this.isConnected()) {
+      // Socket is dead — reconnect immediately (no delay for first attempt on resume)
+      console.log('Tab resumed: socket is dead, reconnecting...');
+      this.reconnectAttempts = 0; // Reset so we get a fresh set of retries
+      this.emit({ type: 'reconnecting' });
+      this.connect(roomId).catch(() => {
+        // connect() rejection is handled; onclose will trigger further retries
+      });
+    }
+    // If the socket IS still open, do nothing. When the server receives any 
+    // subsequent message (like the keep-alive PING), it will respond and 
+    // prove liveness. No need for a forced heartbeat check that could
+    // accidentally kill healthy connections.
   }
 
   public connect(roomId?: string): Promise<void> {
-    if (roomId) this.lastRoomId = roomId;
     this.intentionallyDisconnected = false;
 
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      // Already connected. If we have a roomId and need to re-sync, send RECONNECT.
+      if (roomId) {
+        this.sendAction('RECONNECT', { roomId, sessionId: this.sessionId });
+      }
       return Promise.resolve();
     }
 
@@ -97,10 +105,13 @@ class WebSocketService {
     }
 
     this.isConnecting = true;
+    // Use the provided roomId, or fall back to sessionStorage
+    const targetRoomId = roomId || this.getRoomId();
+
     return new Promise((resolve, reject) => {
       let connectionUrl = `${this.url}?sessionId=${this.sessionId}`;
-      if (this.lastRoomId) {
-        connectionUrl += `&roomId=${this.lastRoomId}`;
+      if (targetRoomId) {
+        connectionUrl += `&roomId=${targetRoomId}`;
       }
 
       this.ws = new WebSocket(connectionUrl);
@@ -109,28 +120,27 @@ class WebSocketService {
         console.log('WebSocket connected');
         this.isConnecting = false;
         this.reconnectAttempts = 0;
-        
-        // Notify UI we reconnected
+
+        // Notify UI that the connection was (re-)established
         this.emit({ type: 'reconnected' });
 
+        // AWS API Gateway disconnects idle websockets after 10 minutes.
+        // Send a keep-alive PING every 5 minutes.
         this.pingInterval = setInterval(() => {
           this.sendAction('PING');
-        }, 5 * 60 * 1000); // API Gateway 10 min idle timeout
+        }, 5 * 60 * 1000);
 
-        if (this.lastRoomId) {
-          this.sendAction('RECONNECT', { roomId: this.lastRoomId, sessionId: this.sessionId });
+        // If we know we're in a room, send RECONNECT to re-sync state.
+        // This is what tells the backend "I'm back, update my connectionId
+        // and broadcast the updated player list to everyone."
+        if (targetRoomId) {
+          this.sendAction('RECONNECT', { roomId: targetRoomId, sessionId: this.sessionId });
         }
-        
+
         resolve();
       };
 
       this.ws.onmessage = (event) => {
-        // Any message proves the connection is alive
-        if (this.pongTimeout) {
-          clearTimeout(this.pongTimeout);
-          this.pongTimeout = null;
-        }
-
         try {
           const data = JSON.parse(event.data) as WsMessage;
           this.emit(data);
@@ -145,6 +155,7 @@ class WebSocketService {
         this.isConnecting = false;
         this.cleanupIntervals();
         
+        // Auto-reconnect if this wasn't an intentional disconnect
         if (!this.intentionallyDisconnected) {
           this.triggerReconnect();
         }
@@ -158,22 +169,26 @@ class WebSocketService {
     });
   }
 
+  /**
+   * Schedules a reconnection attempt with exponential backoff.
+   * Called automatically from onclose when the disconnect was unexpected.
+   */
   private triggerReconnect() {
-    if (this.intentionallyDisconnected || !this.lastRoomId) return;
+    const roomId = this.getRoomId();
+    if (this.intentionallyDisconnected || !roomId) return;
     
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     
     if (this.reconnectAttempts < 5) {
       this.reconnectAttempts++;
       const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 10000);
-      console.log(`Reconnecting in ${delay}ms... (Attempt ${this.reconnectAttempts})`);
+      console.log(`Auto-reconnecting in ${delay}ms... (Attempt ${this.reconnectAttempts}/5)`);
       
       this.emit({ type: 'reconnecting' });
       
       this.reconnectTimer = setTimeout(() => {
-        this.connect(this.lastRoomId).catch(() => {
-          // Reconnection failed, trigger it again (onclose will fire or we handle it here)
-          // The error handler will be caught by the connect promise reject, but onclose also fires.
+        this.connect(roomId).catch(() => {
+          // If connect() rejects (onerror), onclose will also fire and re-trigger this.
         });
       }, delay);
     } else {
@@ -186,10 +201,6 @@ class WebSocketService {
     if (this.pingInterval) {
       clearInterval(this.pingInterval);
       this.pingInterval = null;
-    }
-    if (this.pongTimeout) {
-      clearTimeout(this.pongTimeout);
-      this.pongTimeout = null;
     }
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
@@ -219,7 +230,6 @@ class WebSocketService {
 
   public disconnect() {
     this.intentionallyDisconnected = true;
-    this.lastRoomId = undefined;
     if (this.ws) {
       this.ws.close();
       this.ws = null;
@@ -236,4 +246,5 @@ class WebSocketService {
   }
 }
 
+// Export a singleton instance
 export const wsService = new WebSocketService();

@@ -73,9 +73,16 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Game actions
     'START_GAME', 'PLAY_CARD', 'DRAW_CARD', 'PLAY_DRAWN_CARD',
     'PASS_AFTER_DRAW', 'CALL_UNO', 'TIMEOUT',
+    // Keep-alive
+    'PING',
   ];
   if (!VALID_ACTIONS.includes(action)) {
     return { statusCode: 400, body: `Unknown action: ${action}` };
+  }
+
+  // Handle keep-alive pings immediately — no processing needed
+  if (action === 'PING') {
+    return { statusCode: 200, body: 'PONG' };
   }
 
   try {
