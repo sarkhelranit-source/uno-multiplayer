@@ -45,6 +45,7 @@ export type WsMessage =
   | { type: 'gameStateUpdate'; publicState: PublicGameState; privateState: PrivateGameState }
   | { type: 'playerDisconnected'; playerName: string; playerIndex: number; players: PlayerInfo[] }
   | { type: 'leftRoom'; reason?: string }
+  | { type: 'reaction'; emoji: string; playerName: string }
   | { type: 'error'; message: string }
   | { type: 'reconnecting' }
   | { type: 'reconnected' };

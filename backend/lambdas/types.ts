@@ -24,6 +24,7 @@ export interface UnoPlayer {
   hand: Card[];           // PRIVATE — never broadcast to other players
   hasCalledUno: boolean;
   isDisconnected: boolean;
+  lastReactionAt?: number; // Backend rate limiting for emojis
 }
 
 export interface GameSettings {

@@ -1,0 +1,72 @@
+.emoji-reaction-tray {
+  position: absolute;
+  bottom: 24px;
+  left: 24px;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 12px;
+  z-index: 1000;
+}
+
+.emoji-toggle-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(20, 30, 50, 0.6);
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: opacity 0.2s;
+}
+
+.emoji-toggle-btn.on-cooldown {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.emoji-picker-menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--radius-xl);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(20, 30, 50, 0.8);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  max-width: 280px;
+}
+
+.emoji-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.emoji-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.emoji-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .emoji-reaction-tray {
+    bottom: 120px; /* Position above mobile hand area */
+    left: 12px;
+  }
+}

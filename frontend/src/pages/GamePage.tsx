@@ -5,6 +5,8 @@ import PlayerHand from '../components/PlayerHand';
 import OpponentRow from '../components/OpponentRow';
 import ColorPicker from '../components/ColorPicker';
 import UnoCard from '../components/UnoCard';
+import EmojiReactionTray from '../components/EmojiReactionTray';
+import FloatingReaction from '../components/FloatingReaction';
 import { wsService } from '../services/WebSocketService';
 import type { WsMessage, PublicGameState, PrivateGameState } from '../types/game';
 import './GamePage.css';
@@ -37,6 +39,13 @@ export default function GamePage() {
 
   // Victory state
   const [victoryPhase, setVictoryPhase] = useState<'none' | 'pulse' | 'confetti' | 'celebration'>('none');
+
+  // Emoji Reactions
+  const [activeReactions, setActiveReactions] = useState<Array<{ id: string; emoji: string; playerName: string }>>([]);
+
+  const handleReactionComplete = useCallback((id: string) => {
+    setActiveReactions(prev => prev.filter(r => r.id !== id));
+  }, []);
 
   // Orchestrate victory animation
   useEffect(() => {
@@ -199,6 +208,16 @@ export default function GamePage() {
         case 'reconnected':
           setIsReconnecting(false);
           break;
+        case 'reaction':
+          console.log('[REACTION RECEIVED]', msg);
+          setActiveReactions(prev => [
+            ...prev,
+            { id: Date.now().toString() + Math.random(), emoji: msg.emoji, playerName: msg.playerName }
+          ]);
+          // Debug: also show as toast so we can tell if the message arrived
+          setToastMessage(`${msg.playerName} reacted: ${msg.emoji}`);
+          setTimeout(() => setToastMessage(null), 3000);
+          break;
       }
     });
 
@@ -240,6 +259,11 @@ export default function GamePage() {
     setPendingWildCardId(null);
     if (localUnoCalled) setLocalUnoCalled(false);
   }, [pendingWildCardId, localUnoCalled]);
+
+  const handleColorPickerClose = useCallback(() => {
+    setShowColorPicker(false);
+    setPendingWildCardId(null);
+  }, []);
 
   const handleDrawCard = useCallback(() => {
     wsService.sendAction('DRAW_CARD');
@@ -404,37 +428,7 @@ export default function GamePage() {
         )}
       </AnimatePresence>
 
-      {/* Action Toast */}
-      <AnimatePresence>
-        {toastMessage && (
-          <motion.div
-            className="action-toast"
-            initial={{ x: '-50%', y: '-50%', opacity: 0 }}
-            animate={{ x: '-50%', y: '-50%', opacity: 1 }}
-            exit={{ x: '-50%', y: '-50%', opacity: 0 }}
-            style={{
-              position: 'fixed',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              background: 'rgba(0, 0, 0, 0.75)',
-              color: 'white',
-              padding: '12px 24px',
-              borderRadius: '24px',
-              zIndex: 1000,
-              fontWeight: 'bold',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              textAlign: 'center',
-              whiteSpace: 'normal',
-              wordWrap: 'break-word',
-              maxWidth: '90vw'
-            }}
-          >
-            {toastMessage}
-          </motion.div>
-        )}
-      </AnimatePresence>
+
 
       {/* Opponents */}
       <OpponentRow opponents={opponents} />
@@ -493,6 +487,38 @@ export default function GamePage() {
         </div>
       </motion.div>
 
+      {/* Action Toast Anchor (between card stack and player cards) */}
+      <div style={{ position: 'relative', width: '100%', height: 0 }}>
+        <AnimatePresence>
+          {toastMessage && (
+            <motion.div
+              className="action-toast"
+              initial={{ x: '-50%', y: '-30%', opacity: 0 }}
+              animate={{ x: '-50%', y: '-50%', opacity: 1 }}
+              exit={{ x: '-50%', y: '-30%', opacity: 0 }}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: '50%',
+                background: 'rgba(0, 0, 0, 0.85)',
+                color: 'white',
+                padding: '10px 20px',
+                borderRadius: '20px',
+                zIndex: 1000,
+                fontWeight: 'bold',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                textAlign: 'center',
+                whiteSpace: 'nowrap',
+                maxWidth: '90vw'
+              }}
+            >
+              {toastMessage}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
       {/* UNO Call Button */}
       {privateState.hand.length === 1 && !publicState.players[myPlayerIndex]?.hasCalledUno && !localUnoCalled && (
         <motion.div
@@ -513,7 +539,7 @@ export default function GamePage() {
       )}
 
       {/* Player's Hand */}
-      <div className="my-hand-area">
+      <div id="my-player-area" className="my-hand-area">
         <div className="my-hand-header">
           <span className="my-hand-label">Your Cards</span>
           <span className="my-hand-count">({privateState.hand.length})</span>
@@ -526,10 +552,29 @@ export default function GamePage() {
         />
       </div>
 
+      {/* Emoji Reaction Tray */}
+      <EmojiReactionTray onSendReaction={(emoji) => wsService.sendAction('SEND_REACTION', { emoji })} />
+
+      {/* Floating Reactions */}
+      {activeReactions.map((reaction) => {
+        const myName = publicState.players[privateState.myPlayerIndex]?.name;
+        return (
+          <FloatingReaction
+            key={reaction.id}
+            id={reaction.id}
+            emoji={reaction.emoji}
+            playerName={reaction.playerName}
+            isLocalPlayer={reaction.playerName === myName}
+            onComplete={handleReactionComplete}
+          />
+        );
+      })}
+
       {/* Color Picker Modal */}
       <ColorPicker
         isOpen={showColorPicker}
         onSelect={handleColorSelected}
+        onClose={handleColorPickerClose}
       />
 
       {/* Shockwave Pulse & Confetti */}

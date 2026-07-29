@@ -34,6 +34,7 @@ export default function OpponentRow({ opponents }: OpponentRowProps) {
         return (
           <motion.div
             key={opp.name}
+            id={`player-avatar-${opp.name}`}
             className={`opponent-seat ${opp.isCurrentTurn ? 'active-turn' : ''} ${opp.isDisconnected ? 'disconnected' : ''} ${opp.isMe ? 'is-me' : ''}`}
             initial={{ opacity: 0, y: -20, x: 0, rotate: 0 }}
             animate={{ opacity: 1, y: 0, x: 0, rotate: 0 }}

@@ -1,0 +1,40 @@
+.floating-reaction {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  margin-left: -50px;
+  margin-top: -50px;
+  width: 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 2000;
+}
+
+.emoji-symbol {
+  font-size: 5rem;
+  line-height: 1;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
+}
+
+.emoji-symbol.glow-red {
+  filter: drop-shadow(0 0 20px rgba(239, 68, 68, 0.8));
+}
+
+.emoji-symbol.glow-orange {
+  filter: drop-shadow(0 0 20px rgba(245, 158, 11, 0.8));
+}
+
+.reaction-player-name {
+  margin-top: 8px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1rem;
+  color: white;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+  background: rgba(0, 0, 0, 0.4);
+  padding: 4px 12px;
+  border-radius: 12px;
+}

@@ -4,6 +4,7 @@ import './ColorPicker.css';
 interface ColorPickerProps {
   isOpen: boolean;
   onSelect: (color: string) => void;
+  onClose?: () => void;
 }
 
 const COLORS = [
@@ -13,7 +14,7 @@ const COLORS = [
   { name: 'yellow', label: 'Yellow', hex: '#f1c40f' },
 ];
 
-export default function ColorPicker({ isOpen, onSelect }: ColorPickerProps) {
+export default function ColorPicker({ isOpen, onSelect, onClose }: ColorPickerProps) {
   return (
     <AnimatePresence>
       {isOpen && (
@@ -30,6 +31,15 @@ export default function ColorPicker({ isOpen, onSelect }: ColorPickerProps) {
             exit={{ scale: 0.7, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
           >
+            {onClose && (
+              <button 
+                className="color-picker-close-btn" 
+                onClick={onClose} 
+                aria-label="Close"
+              >
+                &times;
+              </button>
+            )}
             <h3 className="color-picker-title">Choose a Color</h3>
             <div className="color-picker-grid">
               {COLORS.map((c) => (

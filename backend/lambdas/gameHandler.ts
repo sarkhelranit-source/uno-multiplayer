@@ -75,6 +75,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     'PASS_AFTER_DRAW', 'CALL_UNO', 'TIMEOUT',
     // Keep-alive
     'PING',
+    // Reactions
+    'SEND_REACTION',
   ];
   if (!VALID_ACTIONS.includes(action)) {
     return { statusCode: 400, body: `Unknown action: ${action}` };
@@ -135,6 +137,30 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Handle LEAVE_ROOM
     if (action === 'LEAVE_ROOM') {
       return await handleLeaveRoom(connectionId, game, apigwManagementApi);
+    }
+
+    // Handle SEND_REACTION
+    if (action === 'SEND_REACTION') {
+      const sender = game.players.find(p => p.connectionId === connectionId);
+      if (sender) {
+        const now = Date.now();
+        // Rate limit: 3 seconds (3000 ms)
+        if (sender.lastReactionAt && now - sender.lastReactionAt < 3000) {
+          return { statusCode: 429, body: "Too many reactions." };
+        }
+        
+        sender.lastReactionAt = now;
+        
+        await broadcastToRoom(game, apigwManagementApi, {
+          type: 'reaction',
+          emoji: payload.emoji,
+          playerName: sender.name
+        });
+        
+        // Save the updated lastReactionAt timestamp to DynamoDB
+        await saveGame(game);
+      }
+      return { statusCode: 200, body: "Reaction sent." };
     }
 
     // 3. Process Game Action through the engine

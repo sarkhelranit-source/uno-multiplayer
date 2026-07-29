@@ -10,10 +10,36 @@
 }
 
 .color-picker-modal {
+  position: relative;
   padding: 32px;
   border-radius: var(--radius-xl);
   text-align: center;
   min-width: 300px;
+}
+
+.color-picker-close-btn {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-normal);
+}
+
+.color-picker-close-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
 }
 
 .color-picker-title {
