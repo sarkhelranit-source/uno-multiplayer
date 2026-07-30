@@ -121,7 +121,7 @@ export function initializeGame(
     isDisconnected: false,
   }));
 
-  // Flip the first card for the discard pile.
+  // Flip the first card to start the discard pile.
   // If it's a Wild Draw Four, keep drawing until we get a non-WD4 card (official rule).
   let firstCard = deck.pop()!;
   const discardPile: Card[] = [];
@@ -156,6 +156,7 @@ export function initializeGame(
     settings: defaultSettings(),
     turnStartedAt: Date.now(),
     hasDrawnThisTurn: false,
+    version: 1,
   };
 
   // Apply the first card's effect (skip, reverse, draw2 can be first cards)

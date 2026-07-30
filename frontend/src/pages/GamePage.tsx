@@ -28,6 +28,7 @@ export default function GamePage() {
   const [timeLeftMs, setTimeLeftMs] = useState<number>(30_000);
   const [kickoutReason, setKickoutReason] = useState<string | null>(null);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [isProcessingMove, setIsProcessingMove] = useState(false);
 
   // UNO Animation states
   const [showUnoCelebration, setShowUnoCelebration] = useState(false);
@@ -169,6 +170,7 @@ export default function GamePage() {
           setPublicState(msg.publicState);
           setPrivateState(msg.privateState);
           setIsReconnecting(false);
+          setIsProcessingMove(false);
           break;
         case 'playerDisconnected':
           setPublicState(prev => {
@@ -200,6 +202,7 @@ export default function GamePage() {
             // Show error as a toast if game is active (e.g. backend rejected a card play)
             setToastMessage(msg.message);
             setTimeout(() => setToastMessage(null), 3000);
+            setIsProcessingMove(false);
           }
           break;
         case 'reconnecting':
@@ -225,7 +228,7 @@ export default function GamePage() {
   }, [navigate, publicState]);
 
   const handlePlayCard = useCallback((cardId: string) => {
-    if (!privateState || !publicState) return;
+    if (!privateState || !publicState || isProcessingMove) return;
 
     const card = privateState.hand.find(c => c.id === cardId);
     if (!card) return;
@@ -242,13 +245,15 @@ export default function GamePage() {
       return;
     }
 
+    setIsProcessingMove(true);
     wsService.sendAction('PLAY_CARD', { cardId, unoCalled: localUnoCalled });
     if (localUnoCalled) setLocalUnoCalled(false);
-  }, [privateState, publicState, localUnoCalled]);
+  }, [privateState, publicState, localUnoCalled, isProcessingMove]);
 
   const handleColorSelected = useCallback((color: string) => {
-    if (!pendingWildCardId) return;
+    if (!pendingWildCardId || isProcessingMove) return;
 
+    setIsProcessingMove(true);
     wsService.sendAction('PLAY_CARD', {
       cardId: pendingWildCardId,
       wildColor: color,
@@ -266,13 +271,23 @@ export default function GamePage() {
   }, []);
 
   const handleDrawCard = useCallback(() => {
+    if (isProcessingMove) return;
+    setIsProcessingMove(true);
     wsService.sendAction('DRAW_CARD');
-  }, []);
+  }, [isProcessingMove]);
 
   const handleCallUno = useCallback(() => {
+    if (isProcessingMove) return;
+    setIsProcessingMove(true);
     setLocalUnoCalled(true);
     wsService.sendAction('CALL_UNO');
-  }, []);
+  }, [isProcessingMove]);
+
+  const handlePassTurn = useCallback(() => {
+    if (isProcessingMove) return;
+    setIsProcessingMove(true);
+    wsService.sendAction('PASS_AFTER_DRAW');
+  }, [isProcessingMove]);
 
   const COLOR_INDICATOR_MAP: Record<string, string> = {
     red: 'var(--uno-red)',
@@ -458,7 +473,7 @@ export default function GamePage() {
             <button
               className="btn btn-ghost btn-sm"
               style={{ marginTop: '8px' }}
-              onClick={() => wsService.sendAction('PASS_AFTER_DRAW')}
+              onClick={handlePassTurn}
             >
               Pass Turn
             </button>

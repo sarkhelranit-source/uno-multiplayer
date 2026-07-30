@@ -122,8 +122,11 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return { statusCode: 400, body: "Not in a room." };
     }
 
-    // 2. Get Game State
-    const gameData = await docClient.send(new GetCommand({
+    let retries = 3;
+    while (retries > 0) {
+      try {
+        // 2. Get Game State
+        const gameData = await docClient.send(new GetCommand({
       TableName: GAMES_TABLE,
       Key: { roomId },
     }));
@@ -284,8 +287,32 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     await broadcastGameState(game, apigwManagementApi);
 
     return { statusCode: 200, body: "OK" };
-  } catch (err) {
-    console.error("Error processing action:", err);
+      } catch (err: any) {
+        if (err.name === 'ConditionalCheckFailedException') {
+          retries--;
+          if (retries > 0) {
+            continue;
+          }
+          
+          try {
+            await sendToConnection(apigwManagementApi, connectionId, {
+              type: 'error',
+              message: 'Network sync failed. Please try your move again.',
+            });
+          } catch (e) {
+            console.error('Failed to send OCC error message', e);
+          }
+          // Return 200 OK so API Gateway doesn't log a system crash
+          return { statusCode: 200, body: "Conflict resolved by informing client" };
+        }
+
+        console.error("Error processing action:", err);
+        return { statusCode: 500, body: "Internal server error." };
+      }
+    }
+    return { statusCode: 500, body: "Unexpected loop exit." };
+  } catch (err: any) {
+    console.error("Error outside retry loop:", err);
     return { statusCode: 500, body: "Internal server error." };
   }
 };
@@ -636,6 +663,12 @@ async function handleReconnect(
   player.connectionId = connectionId;
   player.isDisconnected = false;
 
+  // Reset the turn timer if it's the reconnecting player's turn to give them a fair chance
+  const playerIndex = game.players.findIndex(p => p.sessionId === sessionId);
+  if (game.status === 'playing' && game.currentPlayerIndex === playerIndex) {
+    game.turnStartedAt = Date.now();
+  }
+
   // Update connection's roomId
   await docClient.send(new UpdateCommand({
     TableName: CONNECTIONS_TABLE,
@@ -698,9 +731,19 @@ function validatePlayerName(name: unknown): string | null {
 // =====================================================
 
 async function saveGame(game: UnoGame): Promise<void> {
+  const currentVersion = game.version || 1;
+  game.version = currentVersion + 1;
+
   await docClient.send(new PutCommand({
     TableName: GAMES_TABLE,
     Item: game,
+    ConditionExpression: "attribute_not_exists(#v) OR #v = :expectedVersion",
+    ExpressionAttributeNames: {
+      "#v": "version"
+    },
+    ExpressionAttributeValues: {
+      ":expectedVersion": currentVersion
+    }
   }));
 }
 

@@ -58,6 +58,9 @@ export interface UnoGame {
   turnStartedAt?: number;      // Timestamp when current turn began (for 5-min timer)
   lastAction?: string;         // Description of last action for UI display
   hasDrawnThisTurn: boolean;   // Has the current player drawn a card this turn?
+
+  // Optimistic Concurrency Control
+  version?: number;            // Monotonically increasing version number
 }
 
 /** Result of a game engine operation */

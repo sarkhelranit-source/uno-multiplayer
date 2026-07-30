@@ -61,57 +61,81 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       // 3. If they were in a room, mark them as disconnected in the game
       if (roomId && roomId !== "LOBBY") {
-        const gameData = await docClient.send(new GetCommand({
-          TableName: GAMES_TABLE,
-          Key: { roomId },
-        }));
+        let retries = 3;
+        while (retries > 0) {
+          const gameData = await docClient.send(new GetCommand({
+            TableName: GAMES_TABLE,
+            Key: { roomId },
+          }));
 
-        if (gameData.Item) {
+          if (!gameData.Item) break;
+          
           const game = gameData.Item as UnoGame;
           const playerIndex = game.players.findIndex(p => p.connectionId === connectionId);
 
           if (playerIndex !== -1) {
             game.players[playerIndex].isDisconnected = true;
+            
+            const currentVersion = game.version || 1;
+            game.version = currentVersion + 1;
 
-            // Save updated game state
-            await docClient.send(new PutCommand({
-              TableName: GAMES_TABLE,
-              Item: game,
-            }));
-
-            // Broadcast disconnect to remaining connected players
-            const endpoint = `https://${event.requestContext.domainName}/${event.requestContext.stage}`;
-            const apigwManagementApi = new ApiGatewayManagementApiClient({ endpoint });
-
-            const disconnectMessage = {
-              type: "playerDisconnected",
-              playerName: game.players[playerIndex].name,
-              playerIndex,
-              players: game.players.map(p => ({
-                name: p.name,
-                cardCount: p.hand.length,
-                hasCalledUno: p.hasCalledUno,
-                isDisconnected: p.isDisconnected,
-              })),
-            };
-
-            const postPromises = game.players
-              .filter(p => !p.isDisconnected && p.connectionId !== connectionId)
-              .map(async (player) => {
-                try {
-                  await apigwManagementApi.send(new PostToConnectionCommand({
-                    ConnectionId: player.connectionId,
-                    Data: Buffer.from(JSON.stringify(disconnectMessage)),
-                  }));
-                } catch (e: unknown) {
-                  const error = e as { $metadata?: { httpStatusCode?: number } };
-                  if (error.$metadata?.httpStatusCode === 410) {
-                    player.isDisconnected = true;
-                  }
+            try {
+              // Save updated game state with OCC
+              await docClient.send(new PutCommand({
+                TableName: GAMES_TABLE,
+                Item: game,
+                ConditionExpression: "attribute_not_exists(#v) OR #v = :expectedVersion",
+                ExpressionAttributeNames: {
+                  "#v": "version"
+                },
+                ExpressionAttributeValues: {
+                  ":expectedVersion": currentVersion
                 }
-              });
+              }));
 
-            await Promise.all(postPromises);
+              // Broadcast disconnect to remaining connected players
+              const endpoint = `https://${event.requestContext.domainName}/${event.requestContext.stage}`;
+              const apigwManagementApi = new ApiGatewayManagementApiClient({ endpoint });
+
+              const disconnectMessage = {
+                type: "playerDisconnected",
+                playerName: game.players[playerIndex].name,
+                playerIndex,
+                players: game.players.map(p => ({
+                  name: p.name,
+                  cardCount: p.hand.length,
+                  hasCalledUno: p.hasCalledUno,
+                  isDisconnected: p.isDisconnected,
+                })),
+              };
+
+              const postPromises = game.players
+                .filter(p => !p.isDisconnected && p.connectionId !== connectionId)
+                .map(async (player) => {
+                  try {
+                    await apigwManagementApi.send(new PostToConnectionCommand({
+                      ConnectionId: player.connectionId,
+                      Data: Buffer.from(JSON.stringify(disconnectMessage)),
+                    }));
+                  } catch (e: unknown) {
+                    const error = e as { $metadata?: { httpStatusCode?: number } };
+                    if (error.$metadata?.httpStatusCode === 410) {
+                      player.isDisconnected = true;
+                    }
+                  }
+                });
+
+              await Promise.all(postPromises);
+              break; // Success, break the retry loop
+            } catch (err: any) {
+              if (err.name === 'ConditionalCheckFailedException') {
+                retries--;
+                continue; // Retry
+              }
+              throw err; // Other error, throw
+            }
+          } else {
+            break; // Player not found, nothing to do
           }
         }
       }
