@@ -148,6 +148,22 @@ export default function LobbyPage() {
 
   const isHost = players.find(p => p.name === playerName)?.isHost || false;
 
+  useEffect(() => {
+    if (!joined) return; // Only trap if they are inside the lobby room
+
+    window.history.pushState(null, '', window.location.href);
+    const handlePopState = () => {
+      wsService.sendAction('LEAVE_ROOM');
+      sessionStorage.removeItem('uno_room_id');
+      navigate('/');
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [joined, navigate]);
+
   // Pre-join: name entry + room code
   if (isReconnecting && !joined) {
     return (

@@ -161,6 +161,21 @@ export default function GamePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run only on mount
 
+  useEffect(() => {
+    // Intercept back button to show leave confirmation instead of unloading the game
+    window.history.pushState(null, '', window.location.href);
+
+    const handlePopState = () => {
+      // Re-push the state to prevent actually navigating back
+      window.history.pushState(null, '', window.location.href);
+      setShowLeaveConfirm(true);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
 
 
   useEffect(() => {

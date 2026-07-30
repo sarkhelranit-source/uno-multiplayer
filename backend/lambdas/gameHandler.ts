@@ -192,6 +192,9 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           })),
         );
 
+        // Inherit the version from the lobby state to satisfy OCC
+        newGame.version = game.version;
+
         await saveGame(newGame);
         await broadcastGameState(newGame, apigwManagementApi);
         return { statusCode: 200, body: "Game started." };
