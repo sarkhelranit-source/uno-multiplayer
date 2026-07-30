@@ -9,3 +9,4 @@ backend/node_modules/
 *.txt
 aws_websocket_troubleshooting.md
 walkthrough.md
+not_your_turn_bug_explanation.md
