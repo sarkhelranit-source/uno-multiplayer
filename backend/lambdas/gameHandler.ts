@@ -226,7 +226,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       case 'TIMEOUT': {
         const timeSinceTurnStarted = Date.now() - (game.turnStartedAt || 0);
-        if (timeSinceTurnStarted < 295_000) {
+        if (timeSinceTurnStarted < 25_000) {
           // Silently ignore early timeouts (due to network sync/clock drift).
           // The frontend will resend it on its next interval tick.
           return { statusCode: 200, body: "Ignored early timeout." };
@@ -534,9 +534,17 @@ async function handleLeaveRoom(
       game.winner = game.players[0].name;
       game.lastAction = 'Opponent left the game.';
     } else {
-      // If it was the leaving player's turn, advance
-      if (game.currentPlayerIndex >= game.players.length) {
-        game.currentPlayerIndex = 0;
+      // Adjust currentPlayerIndex based on who left
+      if (game.currentPlayerIndex > playerIndex) {
+        // The current player shifted left
+        game.currentPlayerIndex -= 1;
+      } else if (game.currentPlayerIndex === playerIndex) {
+        // It was the leaving player's turn. The next player takes their spot.
+        if (game.currentPlayerIndex >= game.players.length) {
+          game.currentPlayerIndex = 0;
+        }
+        // Also reset the turn timer for the new player!
+        game.turnStartedAt = Date.now();
       }
       // Put leaving player's cards back into draw pile
       if (leavingPlayer.hand.length > 0) {

@@ -27,7 +27,7 @@ const NUMBER_VALUES: CardValue[] = ['0', '1', '2', '3', '4', '5', '6', '7', '8',
 const ACTION_VALUES: CardValue[] = ['skip', 'reverse', 'draw2'];
 const WILD_VALUES: WildValue[] = ['wild', 'wild4'];
 const CARDS_PER_PLAYER = 7;
-const TURN_TIMEOUT_MS = 300_000; // 5 minutes
+const TURN_TIMEOUT_MS = 30_000; // 30 seconds
 const UNO_PENALTY_CARDS = 2;
 
 // =====================================================

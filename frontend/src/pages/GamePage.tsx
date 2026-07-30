@@ -25,7 +25,7 @@ export default function GamePage() {
   const [pendingWildCardId, setPendingWildCardId] = useState<string | null>(null);
   const [localUnoCalled, setLocalUnoCalled] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [timeLeftMs, setTimeLeftMs] = useState<number>(300_000);
+  const [timeLeftMs, setTimeLeftMs] = useState<number>(30_000);
   const [kickoutReason, setKickoutReason] = useState<string | null>(null);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
 
@@ -129,7 +129,7 @@ export default function GamePage() {
 
     const updateTimer = () => {
       const elapsed = Date.now() - publicState.turnStartedAt!;
-      const remaining = Math.max(0, 300_000 - elapsed);
+      const remaining = Math.max(0, 30_000 - elapsed);
       setTimeLeftMs(remaining);
 
       // If timer hits 0 and it's our turn, send TIMEOUT
@@ -366,7 +366,7 @@ export default function GamePage() {
               style={{
                 marginLeft: '1rem',
                 fontWeight: 'bold',
-                color: timeLeftMs < 60000 ? 'var(--uno-red)' : 'inherit'
+                color: timeLeftMs < 10000 ? 'var(--uno-red)' : 'inherit'
               }}
             >
               ⏱️ {formatTime(timeLeftMs)}
