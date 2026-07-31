@@ -133,9 +133,17 @@ export default function GamePage() {
       const remaining = Math.max(0, 30_000 - elapsed);
       setTimeLeftMs(remaining);
 
-      // If timer hits 0 and it's our turn, send TIMEOUT
-      if (remaining === 0 && privateState?.myPlayerIndex === publicState.currentPlayerIndex) {
-        wsService.sendAction('TIMEOUT');
+      // If timer hits 0, the current player sends TIMEOUT.
+      // If the current player's browser is closed/dead, they won't send it.
+      // To prevent the game from getting stuck, OTHER players will also send the TIMEOUT action
+      // as a fallback if the timer goes 2 seconds past 0.
+      if (remaining === 0) {
+        const isCurrentPlayer = privateState?.myPlayerIndex === publicState.currentPlayerIndex;
+        if (isCurrentPlayer) {
+          wsService.sendAction('TIMEOUT');
+        } else if (elapsed >= 32_000) {
+          wsService.sendAction('TIMEOUT');
+        }
       }
     };
 
