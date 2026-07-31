@@ -147,6 +147,7 @@ export default function LobbyPage() {
   };
 
   const isHost = players.find(p => p.name === playerName)?.isHost || false;
+  const hostIsDisconnected = players.find(p => p.isHost)?.isDisconnected || false;
 
   useEffect(() => {
     if (!joined) return; // Only trap if they are inside the lobby room
@@ -296,14 +297,14 @@ export default function LobbyPage() {
         {errorMsg && <div style={{ color: 'var(--accent-warning)', fontSize: '0.9rem', textAlign: 'center', marginBottom: '16px' }}>{errorMsg}</div>}
 
         <div className="lobby-actions">
-          {isHost ? (
+          {isHost || hostIsDisconnected ? (
             <button
               id="start-game-btn"
               className="btn btn-uno-red btn-lg"
               onClick={handleStartGame}
               disabled={players.length < 2}
             >
-              {players.length >= 2 ? '🎴 Start Game' : 'Waiting for players...'}
+              {players.length >= 2 ? (isHost ? '🎴 Start Game' : '🎴 Host Offline - Start Anyway') : 'Waiting for players...'}
             </button>
           ) : (
             <div style={{ textAlign: 'center', color: 'var(--text-secondary)', marginBottom: '12px' }}>

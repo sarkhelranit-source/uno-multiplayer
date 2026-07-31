@@ -175,7 +175,10 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           return { statusCode: 400, body: "Game already started." };
         }
         const hostPlayer = game.players.find(p => p.connectionId === connectionId);
-        if (!hostPlayer || game.hostId !== hostPlayer.sessionId) {
+        const actualHost = game.players.find(p => p.sessionId === game.hostId);
+        
+        // Allowed if the player is the host, OR if the actual host is disconnected
+        if (game.hostId !== hostPlayer?.sessionId && !actualHost?.isDisconnected) {
           return { statusCode: 403, body: "Only the host can start the game." };
         }
         if (game.players.length < MIN_PLAYERS) {
@@ -745,6 +748,9 @@ function validatePlayerName(name: unknown): string | null {
 async function saveGame(game: UnoGame): Promise<void> {
   const currentVersion = game.version || 1;
   game.version = currentVersion + 1;
+
+  // Set TTL to 24 hours from now (in seconds) to prevent database memory leaks
+  (game as any).expiresAt = Math.floor(Date.now() / 1000) + (24 * 60 * 60);
 
   await docClient.send(new PutCommand({
     TableName: GAMES_TABLE,
