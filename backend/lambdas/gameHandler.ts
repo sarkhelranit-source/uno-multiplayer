@@ -445,6 +445,15 @@ async function handleJoinRoom(
     return { statusCode: 400, body: "Game already in progress." };
   }
 
+  // Prevent joining abandoned rooms
+  if (game.players.every(p => p.isDisconnected)) {
+    await sendToConnection(apigwManagementApi, connectionId, {
+      type: 'error',
+      message: 'This room has been abandoned by the host. Please check the code or create a new room.',
+    });
+    return { statusCode: 404, body: "Room abandoned." };
+  }
+
   if (game.players.length >= MAX_PLAYERS) {
     await sendToConnection(apigwManagementApi, connectionId, {
       type: 'error',
