@@ -699,6 +699,7 @@ export function getPublicGameState(game: UnoGame) {
       hasCalledUno: p.hasCalledUno,
       isDisconnected: p.isDisconnected,
       sessionId: p.sessionId,
+      isHost: p.sessionId === game.hostId,
     })),
   };
 }

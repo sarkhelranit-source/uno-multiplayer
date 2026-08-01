@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { wsService } from '../services/WebSocketService';
 import type { PlayerInfo, WsMessage } from '../types/game';
 import './LobbyPage.css';
@@ -13,10 +13,13 @@ export default function LobbyPage() {
   const [playerName, setPlayerName] = useState(sessionStorage.getItem('uno_player_name') || '');
   const [roomCode, setRoomCode] = useState('');
   
+  const location = useLocation();
+  const state = location.state as any;
+  
   // State for waiting room
-  const [joined, setJoined] = useState(false);
-  const [players, setPlayers] = useState<PlayerInfo[]>([]);
-  const [activeRoomId, setActiveRoomId] = useState('');
+  const [joined, setJoined] = useState(!!state?.roomId);
+  const [players, setPlayers] = useState<PlayerInfo[]>(state?.players || []);
+  const [activeRoomId, setActiveRoomId] = useState(state?.roomId || '');
   
   // UI states
   const [copied, setCopied] = useState(false);

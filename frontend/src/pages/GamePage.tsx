@@ -40,6 +40,12 @@ export default function GamePage() {
 
   // Victory state
   const [victoryPhase, setVictoryPhase] = useState<'none' | 'pulse' | 'confetti' | 'celebration'>('none');
+  const [wantsToReturn, setWantsToReturn] = useState(false);
+  const wantsToReturnRef = useRef(wantsToReturn);
+
+  useEffect(() => {
+    wantsToReturnRef.current = wantsToReturn;
+  }, [wantsToReturn]);
 
   // Emoji Reactions
   const [activeReactions, setActiveReactions] = useState<Array<{ id: string; emoji: string; playerName: string }>>([]);
@@ -234,6 +240,13 @@ export default function GamePage() {
         case 'reconnected':
           setIsReconnecting(false);
           break;
+        case 'lobbyUpdate':
+          if (wantsToReturnRef.current) {
+            navigate('/lobby', { state: { roomId: msg.roomId, players: msg.players } });
+          } else {
+            setPublicState(prev => prev ? { ...prev, status: 'waiting' } : prev);
+          }
+          break;
         case 'reaction':
           console.log('[REACTION RECEIVED]', msg);
           setActiveReactions(prev => [
@@ -311,6 +324,26 @@ export default function GamePage() {
     setIsProcessingMove(true);
     wsService.sendAction('PASS_AFTER_DRAW');
   }, [isProcessingMove]);
+
+  const handleReturnToLobby = useCallback(() => {
+    if (publicState?.status === 'waiting') {
+      navigate('/lobby', { state: { roomId: publicState.roomId, players: publicState.players } });
+      return;
+    }
+    
+    setWantsToReturn(true);
+    
+    const myIndex = privateState?.myPlayerIndex;
+    const myPlayer = myIndex !== undefined ? publicState?.players[myIndex] : undefined;
+    if (myPlayer?.isHost) {
+      wsService.sendAction('RETURN_TO_LOBBY');
+    } else {
+      const host = publicState?.players.find(p => p.isHost);
+      if (host?.isDisconnected) {
+        wsService.sendAction('RETURN_TO_LOBBY');
+      }
+    }
+  }, [publicState, privateState, navigate]);
 
   const COLOR_INDICATOR_MAP: Record<string, string> = {
     red: 'var(--uno-red)',
@@ -694,13 +727,22 @@ export default function GamePage() {
                 {publicState?.winner === publicState?.players[privateState?.myPlayerIndex || 0]?.name ? 'You' : publicState?.winner}
               </span> won the game!
             </h2>
-            <button className="btn btn-primary btn-lg" style={{ marginTop: '3rem', fontSize: '1.2rem' }} onClick={() => {
-              sessionStorage.removeItem('uno_room_id');
-              wsService.disconnect();
-              navigate('/');
-            }}>
-              Back to Home
-            </button>
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '3rem' }}>
+              <button className="btn btn-primary btn-lg" style={{ fontSize: '1.2rem' }} onClick={handleReturnToLobby}>
+                {wantsToReturn ? 'Waiting for host...' : 'Return to Lobby'}
+              </button>
+              <button
+                className="btn btn-lg"
+                style={{ fontSize: '1.2rem', color: 'white', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.3)' }}
+                onClick={() => {
+                  sessionStorage.removeItem('uno_room_id');
+                  wsService.disconnect();
+                  navigate('/');
+                }}
+              >
+                Leave Game
+              </button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

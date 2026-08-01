@@ -77,6 +77,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     'PING',
     // Reactions
     'SEND_REACTION',
+    // Reset
+    'RETURN_TO_LOBBY',
   ];
   if (!VALID_ACTIONS.includes(action)) {
     return { statusCode: 400, body: `Unknown action: ${action}` };
@@ -170,6 +172,57 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     let result;
 
     switch (action) {
+      case 'RETURN_TO_LOBBY': {
+        if (game.status !== 'finished') {
+          return { statusCode: 400, body: "Game is not finished." };
+        }
+        
+        const sender = game.players.find(p => p.connectionId === connectionId);
+        if (!sender) return { statusCode: 400, body: "Sender not found." };
+        
+        let isHost = sender.sessionId === game.hostId;
+        
+        // If not host, check if host is disconnected. If so, transfer host role.
+        if (!isHost) {
+          const actualHost = game.players.find(p => p.sessionId === game.hostId);
+          if (actualHost?.isDisconnected) {
+            game.hostId = sender.sessionId;
+            isHost = true;
+          }
+        }
+        
+        if (!isHost) {
+          return { statusCode: 403, body: "Only the host can return to lobby." };
+        }
+        
+        // Reset game state for lobby
+        game.status = 'waiting';
+        game.winner = undefined;
+        game.players.forEach(p => {
+          p.hand = [];
+          p.hasCalledUno = false;
+        });
+        game.drawPile = [];
+        game.discardPile = [];
+        
+        // Broadcast lobby update
+        const lobbyState = {
+          type: 'lobbyUpdate',
+          roomId: game.roomId,
+          players: game.players.map(p => ({
+            name: p.name,
+            isHost: p.sessionId === game.hostId,
+            isDisconnected: p.isDisconnected,
+          })),
+          playerCount: game.players.length,
+          maxPlayers: MAX_PLAYERS,
+        };
+        await broadcastToRoom(game, apigwManagementApi, lobbyState);
+        
+        result = { success: true };
+        break;
+      }
+
       case 'START_GAME': {
         if (game.status !== 'waiting') {
           return { statusCode: 400, body: "Game already started." };
@@ -262,29 +315,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return { statusCode: 400, body: result.error || "Action failed." };
     }
 
-    if (game.winner) {
-      // Broadcast game over state first so clients know the game ended
-      await broadcastGameState(game, apigwManagementApi);
-
-      // Clean up connections
-      const deletePromises: Promise<any>[] = game.players.map(p => 
-        p.connectionId ? docClient.send(new DeleteCommand({
-          TableName: CONNECTIONS_TABLE,
-          Key: { connectionId: p.connectionId }
-        })) : Promise.resolve()
-      );
-      
-      // Clean up game room
-      deletePromises.push(
-        docClient.send(new DeleteCommand({
-          TableName: GAMES_TABLE,
-          Key: { roomId: game.roomId }
-        }))
-      );
-
-      await Promise.all(deletePromises);
-      return { statusCode: 200, body: "Game ended and cleaned up." };
-    }
+    // Let the game naturally fall through to save the finished state
 
     // 5. Save Updated Game State
     await saveGame(game);
