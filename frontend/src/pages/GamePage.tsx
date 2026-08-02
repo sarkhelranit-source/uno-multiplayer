@@ -241,11 +241,8 @@ export default function GamePage() {
           setIsReconnecting(false);
           break;
         case 'lobbyUpdate':
-          if (wantsToReturnRef.current) {
-            navigate('/lobby', { state: { roomId: msg.roomId, players: msg.players } });
-          } else {
-            setPublicState(prev => prev ? { ...prev, status: 'waiting' } : prev);
-          }
+          // The host has returned everyone to the lobby — navigate all players
+          navigate('/lobby', { state: { roomId: msg.roomId, players: msg.players } });
           break;
         case 'reaction':
           console.log('[REACTION RECEIVED]', msg);
@@ -331,6 +328,7 @@ export default function GamePage() {
       return;
     }
     
+    wantsToReturnRef.current = true;
     setWantsToReturn(true);
     
     const myIndex = privateState?.myPlayerIndex;
@@ -353,7 +351,7 @@ export default function GamePage() {
     wild: 'var(--accent-primary)',
   };
 
-  if (!publicState || !privateState || isReconnecting) {
+  if (!publicState || !privateState || isReconnecting || !publicState.topCard) {
     return (
       <div className="game-page" style={{ justifyContent: 'center', alignItems: 'center' }}>
         <h2 style={{ color: 'white' }}>

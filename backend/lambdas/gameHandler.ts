@@ -180,11 +180,11 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         const sender = game.players.find(p => p.connectionId === connectionId);
         if (!sender) return { statusCode: 400, body: "Sender not found." };
         
-        let isHost = sender.sessionId === game.hostId;
+        const actualHost = game.players.find(p => p.sessionId === game.hostId);
+        let isHost = !!actualHost && sender.name === actualHost.name;
         
         // If not host, check if host is disconnected. If so, transfer host role.
         if (!isHost) {
-          const actualHost = game.players.find(p => p.sessionId === game.hostId);
           if (actualHost?.isDisconnected) {
             game.hostId = sender.sessionId;
             isHost = true;
@@ -206,12 +206,13 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         game.discardPile = [];
         
         // Broadcast lobby update
+        const currentHostName = game.players.find(p => p.sessionId === game.hostId)?.name;
         const lobbyState = {
           type: 'lobbyUpdate',
           roomId: game.roomId,
           players: game.players.map(p => ({
             name: p.name,
-            isHost: p.sessionId === game.hostId,
+            isHost: p.name === currentHostName,
             isDisconnected: p.isDisconnected,
           })),
           playerCount: game.players.length,
@@ -234,8 +235,16 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         if (game.hostId !== hostPlayer?.sessionId && !actualHost?.isDisconnected) {
           return { statusCode: 403, body: "Only the host can start the game." };
         }
+        // Strip any remaining disconnected ghost players (Fix B)
+        game.players = game.players.filter(p => !p.isDisconnected);
+        
         if (game.players.length < MIN_PLAYERS) {
-          return { statusCode: 400, body: `Need at least ${MIN_PLAYERS} players to start.` };
+          return { statusCode: 400, body: `Need at least ${MIN_PLAYERS} connected players to start.` };
+        }
+
+        // If the host was stripped because they were disconnected, transfer host to the first active player
+        if (!game.players.some(p => p.sessionId === game.hostId) && game.players.length > 0) {
+          game.hostId = game.players[0].sessionId;
         }
 
         const newGame = initializeGame(
@@ -488,23 +497,6 @@ async function handleJoinRoom(
     return { statusCode: 404, body: "Room abandoned." };
   }
 
-  if (game.players.length >= MAX_PLAYERS) {
-    await sendToConnection(apigwManagementApi, connectionId, {
-      type: 'error',
-      message: 'Room is full (max 8 players).',
-    });
-    return { statusCode: 400, body: "Room is full." };
-  }
-
-  // Check for duplicate names
-  if (game.players.some(p => p.name.toLowerCase() === playerName.toLowerCase())) {
-    await sendToConnection(apigwManagementApi, connectionId, {
-      type: 'error',
-      message: 'That name is already taken in this room.',
-    });
-    return { statusCode: 400, body: "Name already taken." };
-  }
-
   // Get sessionId
   const connData = await docClient.send(new GetCommand({
     TableName: CONNECTIONS_TABLE,
@@ -512,16 +504,43 @@ async function handleJoinRoom(
   }));
   const sessionId = (connData.Item?.sessionId as string) || connectionId;
 
-  // Add the player
-  const newPlayer: UnoPlayer = {
-    connectionId,
-    sessionId,
-    name: playerName,
-    hand: [],
-    hasCalledUno: false,
-    isDisconnected: false,
-  };
-  game.players.push(newPlayer);
+  // Check for duplicate names or reclaimable seats (Fix D)
+  const existingPlayerIndex = game.players.findIndex(p => p.name.toLowerCase() === playerName.toLowerCase());
+  
+  if (existingPlayerIndex !== -1) {
+    if (game.players[existingPlayerIndex].isDisconnected) {
+      // Reclaim the disconnected ghost seat
+      game.players[existingPlayerIndex].connectionId = connectionId;
+      game.players[existingPlayerIndex].sessionId = sessionId;
+      game.players[existingPlayerIndex].isDisconnected = false;
+    } else {
+      await sendToConnection(apigwManagementApi, connectionId, {
+        type: 'error',
+        message: 'That name is already taken in this room.',
+      });
+      return { statusCode: 400, body: "Name already taken." };
+    }
+  } else {
+    // If not reclaiming, verify the room isn't full
+    if (game.players.length >= MAX_PLAYERS) {
+      await sendToConnection(apigwManagementApi, connectionId, {
+        type: 'error',
+        message: 'Room is full (max 8 players).',
+      });
+      return { statusCode: 400, body: "Room is full." };
+    }
+
+    // Add the new player
+    const newPlayer: UnoPlayer = {
+      connectionId,
+      sessionId,
+      name: playerName,
+      hand: [],
+      hasCalledUno: false,
+      isDisconnected: false,
+    };
+    game.players.push(newPlayer);
+  }
 
   // Save the game
   await saveGame(game);
@@ -535,12 +554,13 @@ async function handleJoinRoom(
   }));
 
   // Broadcast updated lobby state to ALL players in the room
+  const currentHostName = game.players.find(p => p.sessionId === game.hostId)?.name;
   const lobbyState = {
     type: 'lobbyUpdate',
     roomId,
     players: game.players.map(p => ({
       name: p.name,
-      isHost: p.sessionId === game.hostId,
+      isHost: p.name === currentHostName,
       isDisconnected: p.isDisconnected,
     })),
     playerCount: game.players.length,
@@ -634,12 +654,13 @@ async function handleLeaveRoom(
   if (game.status === 'playing' || game.status === 'finished') {
     await broadcastGameState(game, apigwManagementApi);
   } else {
+    const currentHostName = game.players.find(p => p.sessionId === game.hostId)?.name;
     const lobbyState = {
       type: 'lobbyUpdate',
       roomId: game.roomId,
       players: game.players.map(p => ({
         name: p.name,
-        isHost: p.sessionId === game.hostId,
+        isHost: p.name === currentHostName,
         isDisconnected: p.isDisconnected,
       })),
       playerCount: game.players.length,
@@ -730,12 +751,13 @@ async function handleReconnect(
   if (game.status === 'playing') {
     await broadcastGameState(game, apigwManagementApi);
   } else {
+    const currentHostName = game.players.find(p => p.sessionId === game.hostId)?.name;
     const lobbyState = {
       type: 'lobbyUpdate',
       roomId: game.roomId,
       players: game.players.map(p => ({
         name: p.name,
-        isHost: p.sessionId === game.hostId,
+        isHost: p.name === currentHostName,
         isDisconnected: p.isDisconnected,
       })),
       playerCount: game.players.length,

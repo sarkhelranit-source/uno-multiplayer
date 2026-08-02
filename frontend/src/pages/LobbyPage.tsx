@@ -65,6 +65,9 @@ export default function LobbyPage() {
           setIsReconnecting(false);
           sessionStorage.setItem('uno_room_id', msg.roomId);
           break;
+        case 'playerDisconnected':
+          setPlayers(msg.players);
+          break;
         case 'gameStateUpdate':
           // Game started, navigate to game page and pass the initial state
           navigate('/game', { 

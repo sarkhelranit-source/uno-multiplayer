@@ -97,6 +97,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
               const endpoint = `https://${event.requestContext.domainName}/${event.requestContext.stage}`;
               const apigwManagementApi = new ApiGatewayManagementApiClient({ endpoint });
 
+              const currentHostName = game.players.find(p => p.sessionId === game.hostId)?.name;
               const disconnectMessage = {
                 type: "playerDisconnected",
                 playerName: game.players[playerIndex].name,
@@ -106,6 +107,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
                   cardCount: p.hand.length,
                   hasCalledUno: p.hasCalledUno,
                   isDisconnected: p.isDisconnected,
+                  isHost: p.name === currentHostName,
                 })),
               };
 
