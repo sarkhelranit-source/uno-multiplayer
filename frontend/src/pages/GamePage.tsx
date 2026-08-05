@@ -102,24 +102,25 @@ export default function GamePage() {
     }
   }, [publicState?.lastAction, publicState?.players, privateState?.myPlayerIndex]);
 
+  const splashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | undefined;
     if (publicState?.topCard && publicState?.currentColor) {
       if (
         previousTopCardIdRef.current &&
         previousTopCardIdRef.current !== publicState.topCard.id &&
         publicState.topCard.color === 'wild'
       ) {
+        // New wild card played — clear any existing timer and start fresh
+        if (splashTimerRef.current) clearTimeout(splashTimerRef.current);
         setSplashColor(publicState.currentColor);
-        timer = setTimeout(() => {
+        splashTimerRef.current = setTimeout(() => {
           setSplashColor(null);
+          splashTimerRef.current = null;
         }, 2000);
       }
       previousTopCardIdRef.current = publicState.topCard.id;
     }
-    return () => {
-      if (timer) clearTimeout(timer);
-    };
+    // No cleanup — the ref-based timer must survive effect re-runs
   }, [publicState?.topCard, publicState?.currentColor]);
 
   // Turn Timer Countdown
@@ -144,11 +145,12 @@ export default function GamePage() {
       // To prevent the game from getting stuck, OTHER players will also send the TIMEOUT action
       // as a fallback if the timer goes 2 seconds past 0.
       if (remaining === 0) {
+        const targetPlayer = publicState.players[publicState.currentPlayerIndex];
         const isCurrentPlayer = privateState?.myPlayerIndex === publicState.currentPlayerIndex;
         if (isCurrentPlayer) {
-          wsService.sendAction('TIMEOUT');
+          wsService.sendAction('TIMEOUT', { targetSessionId: targetPlayer?.sessionId });
         } else if (elapsed >= 32_000) {
-          wsService.sendAction('TIMEOUT');
+          wsService.sendAction('TIMEOUT', { targetSessionId: targetPlayer?.sessionId });
         }
       }
     };

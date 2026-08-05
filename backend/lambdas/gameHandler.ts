@@ -302,7 +302,15 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           // The frontend will resend it on its next interval tick.
           return { statusCode: 200, body: "Ignored early timeout." };
         }
+        
         const timedOutPlayer = game.players[game.currentPlayerIndex];
+        const targetSessionId = payload.targetSessionId as string | undefined;
+        
+        // Prevent desynced clients from kicking the wrong player
+        if (targetSessionId && timedOutPlayer.sessionId !== targetSessionId) {
+          return { statusCode: 200, body: "Ignored timeout for wrong player (desync)." };
+        }
+        
         return await handleLeaveRoom(
           timedOutPlayer.connectionId, 
           game, 
@@ -701,72 +709,83 @@ async function handleReconnect(
     return { statusCode: 400, body: "No room to reconnect to." };
   }
 
-  const gameData = await docClient.send(new GetCommand({
-    TableName: GAMES_TABLE,
-    Key: { roomId: targetRoomId },
-  }));
+  let retries = 3;
+  while (retries > 0) {
+    try {
+      const gameData = await docClient.send(new GetCommand({
+        TableName: GAMES_TABLE,
+        Key: { roomId: targetRoomId },
+      }));
 
-  if (!gameData.Item) {
-    await sendToConnection(apigwManagementApi, connectionId, {
-      type: 'error',
-      message: 'Room no longer exists.',
-    });
-    return { statusCode: 404, body: "Room not found." };
+      if (!gameData.Item) {
+        await sendToConnection(apigwManagementApi, connectionId, {
+          type: 'error',
+          message: 'Room no longer exists.',
+        });
+        return { statusCode: 404, body: "Room not found." };
+      }
+
+      const game = gameData.Item as UnoGame;
+
+      // Find the player by sessionId
+      const player = game.players.find(p => p.sessionId === sessionId);
+      if (!player) {
+        await sendToConnection(apigwManagementApi, connectionId, {
+          type: 'error',
+          message: 'No player with that session found in this room.',
+        });
+        return { statusCode: 404, body: "Player not found in room." };
+      }
+
+      // Update the player's connectionId and mark as connected
+      player.connectionId = connectionId;
+      player.isDisconnected = false;
+
+      // DO NOT reset the turn timer here. 
+      // Resetting it allows players to get free time by reloading the page.
+
+      // Save game with OCC
+      await saveGame(game);
+
+      // Update connection's roomId
+      await docClient.send(new UpdateCommand({
+        TableName: CONNECTIONS_TABLE,
+        Key: { connectionId },
+        UpdateExpression: 'SET roomId = :roomId',
+        ExpressionAttributeValues: { ':roomId': targetRoomId },
+      }));
+
+      // Send full game state to the reconnected player
+      if (game.status === 'playing') {
+        await broadcastGameState(game, apigwManagementApi);
+      } else {
+        const currentHostName = game.players.find(p => p.sessionId === game.hostId)?.name;
+        const lobbyState = {
+          type: 'lobbyUpdate',
+          roomId: game.roomId,
+          players: game.players.map(p => ({
+            name: p.name,
+            isHost: p.name === currentHostName,
+            isDisconnected: p.isDisconnected,
+          })),
+          playerCount: game.players.length,
+          maxPlayers: MAX_PLAYERS,
+        };
+        await broadcastToRoom(game, apigwManagementApi, lobbyState);
+      }
+
+      return { statusCode: 200, body: "Reconnected." };
+    } catch (err: any) {
+      if (err.name === 'ConditionalCheckFailedException') {
+        retries--;
+        if (retries > 0) continue;
+      }
+      console.error("Error reconnecting:", err);
+      return { statusCode: 500, body: "Internal server error." };
+    }
   }
-
-  const game = gameData.Item as UnoGame;
-
-  // Find the player by sessionId
-  const player = game.players.find(p => p.sessionId === sessionId);
-  if (!player) {
-    await sendToConnection(apigwManagementApi, connectionId, {
-      type: 'error',
-      message: 'No player with that session found in this room.',
-    });
-    return { statusCode: 404, body: "Player not found in room." };
-  }
-
-  // Update the player's connectionId and mark as connected
-  player.connectionId = connectionId;
-  player.isDisconnected = false;
-
-  // Reset the turn timer if it's the reconnecting player's turn to give them a fair chance
-  const playerIndex = game.players.findIndex(p => p.sessionId === sessionId);
-  if (game.status === 'playing' && game.currentPlayerIndex === playerIndex) {
-    game.turnStartedAt = Date.now();
-  }
-
-  // Update connection's roomId
-  await docClient.send(new UpdateCommand({
-    TableName: CONNECTIONS_TABLE,
-    Key: { connectionId },
-    UpdateExpression: 'SET roomId = :roomId',
-    ExpressionAttributeValues: { ':roomId': targetRoomId },
-  }));
-
-  // Save game
-  await saveGame(game);
-
-  // Send full game state to the reconnected player
-  if (game.status === 'playing') {
-    await broadcastGameState(game, apigwManagementApi);
-  } else {
-    const currentHostName = game.players.find(p => p.sessionId === game.hostId)?.name;
-    const lobbyState = {
-      type: 'lobbyUpdate',
-      roomId: game.roomId,
-      players: game.players.map(p => ({
-        name: p.name,
-        isHost: p.name === currentHostName,
-        isDisconnected: p.isDisconnected,
-      })),
-      playerCount: game.players.length,
-      maxPlayers: MAX_PLAYERS,
-    };
-    await broadcastToRoom(game, apigwManagementApi, lobbyState);
-  }
-
-  return { statusCode: 200, body: "Reconnected." };
+  
+  return { statusCode: 500, body: "Failed to reconnect after retries." };
 }
 
 // =====================================================
